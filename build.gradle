@@ -14,7 +14,7 @@ apply plugin: 'org.springframework.boot'
 apply plugin: 'io.spring.dependency-management'
 
 bootJar {
-    baseName = 'gs-spring-boot'
+    baseName = 'finance-manager'
     version =  '0.1.0'
 }
 
@@ -26,12 +26,14 @@ sourceCompatibility = 1.8
 targetCompatibility = 1.8
 
 dependencies {
-    compile("org.springframework.boot:spring-boot-starter-web")
-    // tag::actuator[]
-    compile("org.springframework.boot:spring-boot-starter-actuator")
-    // end::actuator[]
-    // tag::tests[]
+    compile (
+        [group: 'org.springframework.boot', name: 'spring-boot-starter-web'],
+        [group: 'org.springframework.boot', name: 'spring-boot-starter-actuator'],
+        [group: 'org.projectlombok', name: 'lombok' , version: '1.18.6'],
+        [group: 'io.springfox', name: 'springfox-swagger2', version: '2.9.2'],
+        [group: 'io.springfox', name: 'springfox-swagger-ui', version: '2.9.2'],
+    )
+
     testCompile("org.springframework.boot:spring-boot-starter-test")
-    // end::tests[]
 }
 
