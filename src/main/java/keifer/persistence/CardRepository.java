@@ -1,7 +1,12 @@
 package keifer.persistence;
 
+import keifer.persistence.model.CardEntity;
 import org.springframework.data.repository.CrudRepository;
 
-public interface CardRepository extends CrudRepository<CardEntity, Integer> {
+import java.util.List;
+
+public interface CardRepository extends CrudRepository<CardEntity, Long> {
+
+    List<CardEntity> findAll();
 
 }

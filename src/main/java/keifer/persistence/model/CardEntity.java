@@ -1,5 +1,6 @@
-package keifer.persistence;
+package keifer.persistence.model;
 
+import keifer.api.model.CardCondition;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -40,5 +41,9 @@ public class CardEntity {
 
     @Column(nullable = false)
     private Integer quantity;
+
+    @ManyToOne
+    @JoinColumn(name = "deck_entity_id")
+    private DeckEntity deckEntity;
 
 }
