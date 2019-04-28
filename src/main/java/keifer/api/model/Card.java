@@ -7,6 +7,8 @@ import lombok.Value;
 @Builder
 public class Card {
 
+    private Long id;
+
     private String name;
 
     private String version;

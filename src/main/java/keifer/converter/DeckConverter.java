@@ -18,7 +18,9 @@ public class DeckConverter {
 
     public Deck convert(DeckEntity source) {
 
-        return Deck.builder().name(source.getName())
+        return Deck.builder()
+                .id(source.getId())
+                .name(source.getName())
                 .format(source.getFormat())
                 .cards(source.getCardEntities().stream().map(cardConverter::convert).collect(Collectors.toList()))
                 .build();

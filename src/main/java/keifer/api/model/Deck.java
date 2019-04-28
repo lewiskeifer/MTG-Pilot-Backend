@@ -9,6 +9,8 @@ import java.util.List;
 @Builder
 public class Deck {
 
+    private Long id;
+
     private String name;
 
     private Format format;
