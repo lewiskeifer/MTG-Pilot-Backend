@@ -3,11 +3,9 @@ package keifer.controller;
 import io.swagger.annotations.Api;
 import keifer.api.model.Deck;
 import keifer.service.DataMigrationService;
-import keifer.service.ManagerService;
+import keifer.service.DeckService;
 import lombok.NonNull;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -16,17 +14,26 @@ import java.util.List;
 @RestController
 public class ManagerController {
 
-    private final ManagerService managerService;
+    private final DeckService deckService;
     private final DataMigrationService dataMigrationService;
 
-    public ManagerController(@NonNull ManagerService managerService, @NonNull DataMigrationService dataMigrationService) {
-        this.managerService = managerService;
+    public ManagerController(@NonNull DeckService deckService, @NonNull DataMigrationService dataMigrationService) {
+        this.deckService = deckService;
         this.dataMigrationService = dataMigrationService;
     }
 
-    @GetMapping
+    // Enable frontend consumer
+    @CrossOrigin(origins = "http://localhost:4200")
+    @GetMapping("/decks")
     public List<Deck> getDecks() {
-        return managerService.returnData();
+        return deckService.getDecks();
+    }
+
+    // Enable frontend consumer
+    @CrossOrigin(origins = "http://localhost:4200")
+    @GetMapping("/decks/{deckId}")
+    public Deck getDeck(@PathVariable("deckId") Long deckId) {
+        return deckService.getDeck(deckId);
     }
 
     @GetMapping("/migrate")
