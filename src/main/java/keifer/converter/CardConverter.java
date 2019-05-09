@@ -9,7 +9,9 @@ public class CardConverter {
 
     public Card convert(CardEntity source) {
 
-        return Card.builder().name(source.getName())
+        return Card.builder()
+                .id(source.getId())
+                .name(source.getName())
                 .version(source.getVersion())
                 .isFoil(source.getIsFoil())
                 .cardCondition(source.getCardCondition())
