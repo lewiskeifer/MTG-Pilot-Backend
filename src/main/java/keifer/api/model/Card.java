@@ -1,10 +1,11 @@
 package keifer.api.model;
 
-import lombok.Builder;
-import lombok.Value;
+import lombok.*;
 
-@Value
+@Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class Card {
 
     private Long id;

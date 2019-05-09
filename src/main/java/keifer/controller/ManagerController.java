@@ -1,6 +1,7 @@
 package keifer.controller;
 
 import io.swagger.annotations.Api;
+import keifer.api.model.Card;
 import keifer.api.model.Deck;
 import keifer.service.DataMigrationService;
 import keifer.service.DeckService;
@@ -22,18 +23,19 @@ public class ManagerController {
         this.dataMigrationService = dataMigrationService;
     }
 
-    // Enable frontend consumer
-    @CrossOrigin(origins = "http://localhost:4200")
     @GetMapping("/decks")
     public List<Deck> getDecks() {
         return deckService.getDecks();
     }
 
-    // Enable frontend consumer
-    @CrossOrigin(origins = "http://localhost:4200")
     @GetMapping("/decks/{deckId}")
     public Deck getDeck(@PathVariable("deckId") Long deckId) {
         return deckService.getDeck(deckId);
+    }
+
+    @PutMapping("/decks/{deckId}")
+    public void addCardToDeck(@PathVariable("deckId") Long deckId, @RequestBody Card card) {
+        deckService.addCardToDeck(deckId, card);
     }
 
     @GetMapping("/migrate")
