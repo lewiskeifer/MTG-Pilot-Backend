@@ -2,6 +2,7 @@ package keifer.service;
 
 import keifer.api.model.CardCondition;
 import keifer.api.model.Format;
+import keifer.converter.CardConverter;
 import keifer.persistence.DeckRepository;
 import keifer.persistence.model.CardEntity;
 import keifer.persistence.model.DeckEntity;
@@ -22,13 +23,19 @@ import java.util.stream.Stream;
 public class DataMigrationServiceImpl implements DataMigrationService {
 
     private final DeckRepository deckRepository;
+    private final TcgService tcgService;
+    private final CardConverter cardConverter;
     private List<List<String>> data;
 
     // TODO move to configs
     private String folderPath = "C:\\Users\\Keifer\\Desktop\\MTG\\main\\input";
 
-    public DataMigrationServiceImpl(@NonNull DeckRepository deckRepository) {
+    public DataMigrationServiceImpl(@NonNull DeckRepository deckRepository,
+                                    @NonNull TcgService tcgService,
+                                    @NonNull CardConverter cardConverter) {
         this.deckRepository = deckRepository;
+        this.tcgService = tcgService;
+        this.cardConverter = cardConverter;
         this.data = new ArrayList<>();
     }
 
@@ -148,7 +155,6 @@ public class DataMigrationServiceImpl implements DataMigrationService {
                         .version(values[1].trim())
                         .purchasePrice(Double.valueOf(values[3].trim()))
                         .quantity(Integer.valueOf(values[4].trim()))
-                        .value(0.0) //TODO
                         .deckEntity(deckEntity)
                         .build();
 
@@ -181,8 +187,9 @@ public class DataMigrationServiceImpl implements DataMigrationService {
                         throw new java.lang.Error("Invalid condition.");
                 }
 
+                cardEntity.setProductConditionId(tcgService.fetchProductConditionId(cardConverter.convert(cardEntity)));
+
                 deckEntity.getCardEntities().add(cardEntity);
-                //cardRepository.save(cardEntity);
             }
 
             deckRepository.save(deckEntity);

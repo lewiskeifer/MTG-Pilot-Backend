@@ -58,7 +58,7 @@ public class DeckServiceImpl implements DeckService {
                 .isFoil(card.getIsFoil())
                 .cardCondition(card.getCardCondition())
                 .purchasePrice(card.getPurchasePrice())
-                .value(card.getValue()) // TODO set properly
+                .marketPrice(card.getMarketPrice()) // TODO set properly
                 .quantity(card.getQuantity())
                 .deckEntity(deckEntity)
                 .build();

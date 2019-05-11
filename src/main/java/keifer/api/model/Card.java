@@ -20,8 +20,8 @@ public class Card {
 
     private Double purchasePrice;
 
-    private Double value;
-
     private Integer quantity;
+
+    private Double marketPrice;
 
 }

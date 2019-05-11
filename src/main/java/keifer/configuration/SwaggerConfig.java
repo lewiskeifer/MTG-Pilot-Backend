@@ -10,7 +10,6 @@ import static springfox.documentation.builders.RequestHandlerSelectors.withClass
 import static springfox.documentation.spi.DocumentationType.SWAGGER_2;
 
 @Configuration
-@EnableSwagger2
 public class SwaggerConfig {
 
     @Bean
@@ -20,4 +19,5 @@ public class SwaggerConfig {
                 .apis(withClassAnnotation(Api.class))
                 .build();
     }
+
 }
