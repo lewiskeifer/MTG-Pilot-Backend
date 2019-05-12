@@ -37,8 +37,8 @@ public class ManagerController {
     }
 
     @PutMapping("/decks/{deckId}")
-    public void addCardToDeck(@PathVariable("deckId") Long deckId, @RequestBody Card card) {
-        deckService.addCardToDeck(deckId, card);
+    public void saveCard(@PathVariable("deckId") Long deckId, @RequestBody Card card) {
+        deckService.saveCard(deckId, card);
     }
 
     @GetMapping("/migrate")
