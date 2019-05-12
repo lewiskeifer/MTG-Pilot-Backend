@@ -1,6 +1,7 @@
 package keifer.service;
 
 import keifer.api.model.Card;
+import keifer.api.model.CardCondition;
 import keifer.api.model.Deck;
 import keifer.converter.CardConverter;
 import keifer.converter.DeckConverter;
@@ -11,6 +12,7 @@ import keifer.persistence.model.DeckEntity;
 import lombok.NonNull;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -38,11 +40,19 @@ public class DeckServiceImpl implements DeckService {
     @Override
     public List<Deck> getDecks() {
 
-        return deckRepository.findAll().stream().map(deckConverter::convert).collect(Collectors.toList());
+        List<Deck> decks = new ArrayList<>();
+        decks.add(getDeckOverview());
+        decks.addAll(deckRepository.findAll().stream().map(deckConverter::convert).collect(Collectors.toList()));
+
+        return decks;
     }
 
     @Override
     public Deck getDeck(Long deckId) {
+
+        if (deckId == 0) {
+            return getDeckOverview();
+        }
 
         DeckEntity deckEntity = deckRepository.findOneById(deckId);
         if (deckEntity == null) {
@@ -50,6 +60,25 @@ public class DeckServiceImpl implements DeckService {
         }
 
         return deckConverter.convert(deckEntity);
+    }
+
+    private Deck getDeckOverview() {
+
+        Deck deck = Deck.builder().id(0L).name("Deck Overview").cards(new ArrayList<>()).build();
+
+        List<Deck> decks = deckRepository.findAll().stream().map(deckConverter::convert).collect(Collectors.toList());
+
+        long count = 0L;
+        for (Deck newDeck : decks) {
+            double deckValue = 0;
+            for (Card card : newDeck.getCards()) {
+                deckValue += card.getMarketPrice();
+            }
+
+            deck.getCards().add(Card.builder().id(count++).name(newDeck.getName()).version("").cardCondition(CardCondition.NEAR_MINT).purchasePrice(0.0).quantity(1).marketPrice(deckValue).build());
+        }
+
+        return deck;
     }
 
     @Override
