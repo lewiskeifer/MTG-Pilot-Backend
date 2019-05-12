@@ -1,6 +1,9 @@
 package keifer.api.model;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
 @Builder
@@ -20,8 +23,8 @@ public class Card {
 
     private Double purchasePrice;
 
-    private Double value;
-
     private Integer quantity;
+
+    private Double marketPrice;
 
 }
