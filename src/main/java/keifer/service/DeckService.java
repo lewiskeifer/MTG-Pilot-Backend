@@ -13,4 +13,6 @@ public interface DeckService {
 
     void saveCard(Long deckId, Card card);
 
+    void refreshDeck(Long deckId);
+
 }

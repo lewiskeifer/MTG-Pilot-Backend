@@ -54,10 +54,7 @@ public class DeckServiceImpl implements DeckService {
             return getDeckOverview();
         }
 
-        DeckEntity deckEntity = deckRepository.findOneById(deckId);
-        if (deckEntity == null) {
-            throw new Error("Deck with id: " + deckId + " not found.");
-        }
+        DeckEntity deckEntity = fetchDeck(deckId);
 
         return deckConverter.convert(deckEntity);
     }
@@ -84,10 +81,7 @@ public class DeckServiceImpl implements DeckService {
     @Override
     public void saveCard(Long deckId, Card card) {
 
-        DeckEntity deckEntity = deckRepository.findOneById(deckId);
-        if (deckEntity == null) {
-            throw new Error("Deck with id: " + deckId + " not found.");
-        }
+        DeckEntity deckEntity = fetchDeck(deckId);
 
         String productConditionId = tcgService.fetchProductConditionId(card);
         double marketPrice = tcgService.fetchMarketPrice(productConditionId);
@@ -116,4 +110,24 @@ public class DeckServiceImpl implements DeckService {
         }
     }
 
+    @Override
+    public void refreshDeck(Long deckId) {
+
+        DeckEntity deckEntity = fetchDeck(deckId);
+
+        for (CardEntity cardEntity : deckEntity.getCardEntities()) {
+            cardEntity.setMarketPrice(tcgService.fetchMarketPrice(cardEntity.getProductConditionId()));
+            cardRepository.save(cardEntity);
+        }
+    }
+
+    private DeckEntity fetchDeck(Long deckId) {
+
+        DeckEntity deckEntity = deckRepository.findOneById(deckId);
+        if (deckEntity == null) {
+            throw new Error("Deck with id: " + deckId + " not found.");
+        }
+
+        return deckEntity;
+    }
 }
