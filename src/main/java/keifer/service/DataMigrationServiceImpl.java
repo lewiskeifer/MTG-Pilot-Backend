@@ -188,6 +188,7 @@ public class DataMigrationServiceImpl implements DataMigrationService {
                 }
 
                 cardEntity.setProductConditionId(tcgService.fetchProductConditionId(cardConverter.convert(cardEntity)));
+                cardEntity.setMarketPrice(tcgService.fetchMarketPrice(cardEntity.getProductConditionId()));
 
                 deckEntity.getCardEntities().add(cardEntity);
             }

@@ -82,13 +82,17 @@ public class TcgServiceImpl implements TcgService {
                 }
             }
         } catch (HttpClientErrorException e) {
-            return "Not found";
+            return "";
         }
 
-        return "Not found";
+        return "";
     }
 
     public double fetchMarketPrice(String productConditionId) {
+
+        if (productConditionId == null || productConditionId.equals("")) {
+            return 0;
+        }
 
         RestTemplate restTemplate = new RestTemplate();
         HttpHeaders headers = new HttpHeaders();
@@ -106,7 +110,7 @@ public class TcgServiceImpl implements TcgService {
             return marketPriceResult.getPrice();
         }
 
-        return -1;
+        return 0;
     }
 
     @Data
