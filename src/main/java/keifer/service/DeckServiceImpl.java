@@ -72,7 +72,7 @@ public class DeckServiceImpl implements DeckService {
         for (Deck newDeck : decks) {
             double deckValue = 0;
             for (Card card : newDeck.getCards()) {
-                deckValue += card.getMarketPrice();
+                deckValue += (card.getMarketPrice() * card.getQuantity());
             }
 
             deck.getCards().add(Card.builder().id(count++).name(newDeck.getName()).version("").cardCondition(CardCondition.NEAR_MINT).purchasePrice(0.0).quantity(1).marketPrice(deckValue).build());
