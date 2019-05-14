@@ -5,6 +5,7 @@ import keifer.api.model.Card;
 import keifer.api.model.Deck;
 import keifer.service.DataMigrationService;
 import keifer.service.DeckService;
+import keifer.service.TcgService;
 import lombok.NonNull;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,10 +18,12 @@ public class ManagerController {
 
     private final DeckService deckService;
     private final DataMigrationService dataMigrationService;
+    private final TcgService tcgService;
 
-    public ManagerController(@NonNull DeckService deckService, @NonNull DataMigrationService dataMigrationService) {
+    public ManagerController(@NonNull DeckService deckService, @NonNull DataMigrationService dataMigrationService, @NonNull TcgService tcgService) {
         this.deckService = deckService;
         this.dataMigrationService = dataMigrationService;
+        this.tcgService = tcgService;
     }
 
     @GetMapping("/decks")
@@ -34,13 +37,23 @@ public class ManagerController {
     }
 
     @PutMapping("/decks/{deckId}")
-    public void addCardToDeck(@PathVariable("deckId") Long deckId, @RequestBody Card card) {
-        deckService.addCardToDeck(deckId, card);
+    public void saveCard(@PathVariable("deckId") Long deckId, @RequestBody Card card) {
+        deckService.saveCard(deckId, card);
+    }
+
+    @PutMapping("/decks/{deckId}/refresh")
+    public void refreshDeck(@PathVariable("deckId") Long deckId) {
+        deckService.refreshDeck(deckId);
     }
 
     @GetMapping("/migrate")
     public void migrate() {
         dataMigrationService.migrateData();
+    }
+
+    @GetMapping("/test")
+    public void test() {
+        tcgService.test();
     }
 
 }

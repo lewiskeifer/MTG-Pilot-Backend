@@ -37,10 +37,11 @@ public class CardEntity {
     private Double purchasePrice;
 
     @Column(nullable = false)
-    private Double value;
-
-    @Column(nullable = false)
     private Integer quantity;
+
+    private String productConditionId;
+
+    private Double marketPrice;
 
     @ManyToOne
     @JoinColumn(name = "deck_entity_id")
