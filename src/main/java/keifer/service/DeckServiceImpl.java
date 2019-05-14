@@ -50,6 +50,7 @@ public class DeckServiceImpl implements DeckService {
     @Override
     public Deck getDeck(Long deckId) {
 
+        // Deck Overview
         if (deckId == 0) {
             return getDeckOverview();
         }
@@ -112,6 +113,17 @@ public class DeckServiceImpl implements DeckService {
 
     @Override
     public void refreshDeck(Long deckId) {
+
+        // Deck Overview
+        if (deckId == 0) {
+            List<CardEntity> cardEntities = cardRepository.findAll();
+            for (CardEntity cardEntity : cardEntities) {
+                cardEntity.setMarketPrice(tcgService.fetchMarketPrice(cardEntity.getProductConditionId()));
+                cardRepository.save(cardEntity);
+            }
+
+            return;
+        }
 
         DeckEntity deckEntity = fetchDeck(deckId);
 
