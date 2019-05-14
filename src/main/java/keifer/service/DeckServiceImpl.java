@@ -50,14 +50,12 @@ public class DeckServiceImpl implements DeckService {
     @Override
     public Deck getDeck(Long deckId) {
 
+        // Deck Overview
         if (deckId == 0) {
             return getDeckOverview();
         }
 
-        DeckEntity deckEntity = deckRepository.findOneById(deckId);
-        if (deckEntity == null) {
-            throw new Error("Deck with id: " + deckId + " not found.");
-        }
+        DeckEntity deckEntity = fetchDeck(deckId);
 
         return deckConverter.convert(deckEntity);
     }
@@ -72,7 +70,7 @@ public class DeckServiceImpl implements DeckService {
         for (Deck newDeck : decks) {
             double deckValue = 0;
             for (Card card : newDeck.getCards()) {
-                deckValue += card.getMarketPrice();
+                deckValue += (card.getMarketPrice() * card.getQuantity());
             }
 
             deck.getCards().add(Card.builder().id(count++).name(newDeck.getName()).version("").cardCondition(CardCondition.NEAR_MINT).purchasePrice(0.0).quantity(1).marketPrice(deckValue).build());
@@ -84,10 +82,7 @@ public class DeckServiceImpl implements DeckService {
     @Override
     public void saveCard(Long deckId, Card card) {
 
-        DeckEntity deckEntity = deckRepository.findOneById(deckId);
-        if (deckEntity == null) {
-            throw new Error("Deck with id: " + deckId + " not found.");
-        }
+        DeckEntity deckEntity = fetchDeck(deckId);
 
         String productConditionId = tcgService.fetchProductConditionId(card);
         double marketPrice = tcgService.fetchMarketPrice(productConditionId);
@@ -116,4 +111,35 @@ public class DeckServiceImpl implements DeckService {
         }
     }
 
+    @Override
+    public void refreshDeck(Long deckId) {
+
+        // Deck Overview
+        if (deckId == 0) {
+            List<CardEntity> cardEntities = cardRepository.findAll();
+            for (CardEntity cardEntity : cardEntities) {
+                cardEntity.setMarketPrice(tcgService.fetchMarketPrice(cardEntity.getProductConditionId()));
+                cardRepository.save(cardEntity);
+            }
+
+            return;
+        }
+
+        DeckEntity deckEntity = fetchDeck(deckId);
+
+        for (CardEntity cardEntity : deckEntity.getCardEntities()) {
+            cardEntity.setMarketPrice(tcgService.fetchMarketPrice(cardEntity.getProductConditionId()));
+            cardRepository.save(cardEntity);
+        }
+    }
+
+    private DeckEntity fetchDeck(Long deckId) {
+
+        DeckEntity deckEntity = deckRepository.findOneById(deckId);
+        if (deckEntity == null) {
+            throw new Error("Deck with id: " + deckId + " not found.");
+        }
+
+        return deckEntity;
+    }
 }

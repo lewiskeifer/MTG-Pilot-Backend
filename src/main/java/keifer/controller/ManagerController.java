@@ -41,6 +41,11 @@ public class ManagerController {
         deckService.saveCard(deckId, card);
     }
 
+    @PutMapping("/decks/{deckId}/refresh")
+    public void refreshDeck(@PathVariable("deckId") Long deckId) {
+        deckService.refreshDeck(deckId);
+    }
+
     @GetMapping("/migrate")
     public void migrate() {
         dataMigrationService.migrateData();

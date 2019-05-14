@@ -93,51 +93,51 @@ public class DataMigrationServiceImpl implements DataMigrationService {
                     deckFormat = Format.CASUAL;
                     break;
                 case 11:
-                    deckName = "B0";
+                    deckName = "Binder Colored";
                     deckFormat = Format.CASUAL;
                     break;
                 case 12:
-                    deckName = "B1";
+                    deckName = "Binder Blue";
                     deckFormat = Format.CASUAL;
                     break;
                 case 13:
-                    deckName = "B2";
+                    deckName = "Binder Black";
                     deckFormat = Format.CASUAL;
                     break;
                 case 14:
-                    deckName = "B3";
+                    deckName = "Binder Red";
                     deckFormat = Format.CASUAL;
                     break;
                 case 15:
-                    deckName = "B4";
+                    deckName = "Binder Green";
                     deckFormat = Format.CASUAL;
                     break;
                 case 16:
-                    deckName = "B5";
+                    deckName = "Binder White";
                     deckFormat = Format.CASUAL;
                     break;
                 case 17:
-                    deckName = "B6";
+                    deckName = "Binder Artifacts";
                     deckFormat = Format.CASUAL;
                     break;
                 case 18:
-                    deckName = "B7";
+                    deckName = "Binder Lands";
                     deckFormat = Format.CASUAL;
                     break;
                 case 19:
-                    deckName = "I0";
+                    deckName = "Investments";
                     deckFormat = Format.CASUAL;
                     break;
                 case 20:
-                    deckName = "I1";
+                    deckName = "Investments Inventions";
                     deckFormat = Format.CASUAL;
                     break;
                 case 21:
-                    deckName = "I2";
+                    deckName = "Investments Toppers";
                     deckFormat = Format.CASUAL;
                     break;
                 case 22:
-                    deckName = "U0";
+                    deckName = "Unsorted";
                     deckFormat = Format.CASUAL;
                     break;
                 default:
