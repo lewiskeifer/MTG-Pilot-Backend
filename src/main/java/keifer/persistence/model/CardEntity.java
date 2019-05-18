@@ -1,6 +1,6 @@
 package keifer.persistence.model;
 
-import keifer.api.model.CardCondition;
+import keifer.service.model.CardCondition;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

@@ -51,9 +51,4 @@ public class ManagerController {
         dataMigrationService.migrateData();
     }
 
-    @GetMapping("/test")
-    public void test() {
-        tcgService.test();
-    }
-
 }

@@ -1,4 +1,4 @@
-package keifer.api.model;
+package keifer.service.model;
 
 public enum CardCondition {
 

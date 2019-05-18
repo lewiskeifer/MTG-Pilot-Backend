@@ -1,7 +1,7 @@
 package keifer.service;
 
-import keifer.api.model.CardCondition;
-import keifer.api.model.Format;
+import keifer.service.model.CardCondition;
+import keifer.service.model.Format;
 import keifer.converter.CardConverter;
 import keifer.persistence.DeckRepository;
 import keifer.persistence.model.CardEntity;

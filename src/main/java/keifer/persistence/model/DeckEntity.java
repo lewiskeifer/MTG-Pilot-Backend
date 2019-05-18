@@ -1,6 +1,6 @@
 package keifer.persistence.model;
 
-import keifer.api.model.Format;
+import keifer.service.model.Format;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

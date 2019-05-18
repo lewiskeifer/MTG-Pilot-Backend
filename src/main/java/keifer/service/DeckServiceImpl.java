@@ -1,7 +1,7 @@
 package keifer.service;
 
 import keifer.api.model.Card;
-import keifer.api.model.CardCondition;
+import keifer.service.model.CardCondition;
 import keifer.api.model.Deck;
 import keifer.converter.CardConverter;
 import keifer.converter.DeckConverter;
@@ -73,7 +73,14 @@ public class DeckServiceImpl implements DeckService {
                 deckValue += (card.getMarketPrice() * card.getQuantity());
             }
 
-            deck.getCards().add(Card.builder().id(count++).name(newDeck.getName()).version("").cardCondition(CardCondition.NEAR_MINT).purchasePrice(0.0).quantity(1).marketPrice(deckValue).build());
+            deck.getCards().add(Card.builder()
+                    .id(count++)
+                    .name(newDeck.getName())
+                    .version("")
+                    .purchasePrice(0.0)
+                    .quantity(1)
+                    .marketPrice(deckValue)
+                    .build());
         }
 
         return deck;
@@ -91,7 +98,7 @@ public class DeckServiceImpl implements DeckService {
                 .name(card.getName())
                 .version(card.getVersion())
                 .isFoil(card.getIsFoil())
-                .cardCondition(card.getCardCondition())
+                .cardCondition(CardCondition.valueOf(card.getCardCondition()))
                 .purchasePrice(card.getPurchasePrice())
                 .quantity(card.getQuantity())
                 .productConditionId(productConditionId)
