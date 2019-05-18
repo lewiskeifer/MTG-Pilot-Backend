@@ -21,7 +21,7 @@ public class DeckConverter {
         return Deck.builder()
                 .id(source.getId())
                 .name(source.getName())
-                .format(source.getFormat().toString())
+                .format(source.getDeckFormat().toString())
                 .cards(source.getCardEntities().stream().map(cardConverter::convert).collect(Collectors.toList()))
                 .build();
 

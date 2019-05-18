@@ -1,6 +1,6 @@
 package keifer.service.model;
 
-public enum Format {
+public enum DeckFormat {
 
     STANDARD,
     MODERN,
@@ -25,7 +25,7 @@ public enum Format {
             case CASUAL:
                 return "Casual";
             default:
-                throw new Error("Invalid format.");
+                throw new Error("Invalid deck format.");
         }
     }
 }

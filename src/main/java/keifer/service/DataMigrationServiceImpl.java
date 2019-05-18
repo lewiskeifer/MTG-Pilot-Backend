@@ -1,11 +1,12 @@
 package keifer.service;
 
-import keifer.service.model.CardCondition;
-import keifer.service.model.Format;
 import keifer.converter.CardConverter;
 import keifer.persistence.DeckRepository;
 import keifer.persistence.model.CardEntity;
 import keifer.persistence.model.DeckEntity;
+import keifer.persistence.model.DeckSnapshotEntity;
+import keifer.service.model.CardCondition;
+import keifer.service.model.DeckFormat;
 import lombok.NonNull;
 import org.springframework.stereotype.Service;
 
@@ -15,6 +16,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
@@ -48,104 +50,106 @@ public class DataMigrationServiceImpl implements DataMigrationService {
         for (List<String> deck : data) {
 
             String deckName = "error";
-            Format deckFormat = Format.COMMANDER;
+            DeckFormat deckFormat = DeckFormat.COMMANDER;
 
             // "Hard-coded" to match current inventory, will break if anything changes
             switch (deckNumber) {
                 case 1:
                     deckName = "Mono Blue";
-                    deckFormat = Format.CASUAL;
+                    deckFormat = DeckFormat.CASUAL;
                     break;
                 case 2:
                     deckName = "Affinity";
-                    deckFormat = Format.LEGACY;
+                    deckFormat = DeckFormat.LEGACY;
                     break;
                 case 3:
                     deckName = "Esper";
-                    deckFormat = Format.CASUAL;
+                    deckFormat = DeckFormat.CASUAL;
                     break;
                 case 4:
                     deckName = "Jund";
-                    deckFormat = Format.MODERN;
+                    deckFormat = DeckFormat.MODERN;
                     break;
                 case 5:
                     deckName = "Azorious";
-                    deckFormat = Format.CASUAL;
+                    deckFormat = DeckFormat.CASUAL;
                     break;
                 case 6:
                     deckName = "Bant";
-                    deckFormat = Format.CASUAL;
+                    deckFormat = DeckFormat.CASUAL;
                     break;
                 case 7:
                     deckName = "Cats";
-                    deckFormat = Format.CASUAL;
+                    deckFormat = DeckFormat.CASUAL;
                     break;
                 case 8:
                     deckName = "Zombies";
-                    deckFormat = Format.CASUAL;
+                    deckFormat = DeckFormat.CASUAL;
                     break;
                 case 9:
                     deckName = "Aura";
-                    deckFormat = Format.MODERN;
+                    deckFormat = DeckFormat.MODERN;
                     break;
                 case 10:
                     deckName = "Izzet";
-                    deckFormat = Format.CASUAL;
+                    deckFormat = DeckFormat.CASUAL;
                     break;
                 case 11:
-                    deckName = "Binder Colored";
-                    deckFormat = Format.CASUAL;
+                    deckName = "Binder Planeswalkers";
+                    deckFormat = DeckFormat.CASUAL;
                     break;
                 case 12:
-                    deckName = "Binder Blue";
-                    deckFormat = Format.CASUAL;
+                    deckName = "Binder Colored";
+                    deckFormat = DeckFormat.CASUAL;
                     break;
                 case 13:
-                    deckName = "Binder Black";
-                    deckFormat = Format.CASUAL;
+                    deckName = "Binder Blue";
+                    deckFormat = DeckFormat.CASUAL;
                     break;
                 case 14:
-                    deckName = "Binder Red";
-                    deckFormat = Format.CASUAL;
+                    deckName = "Binder Black";
+                    deckFormat = DeckFormat.CASUAL;
                     break;
                 case 15:
-                    deckName = "Binder Green";
-                    deckFormat = Format.CASUAL;
+                    deckName = "Binder Red";
+                    deckFormat = DeckFormat.CASUAL;
                     break;
                 case 16:
-                    deckName = "Binder White";
-                    deckFormat = Format.CASUAL;
+                    deckName = "Binder Green";
+                    deckFormat = DeckFormat.CASUAL;
                     break;
                 case 17:
-                    deckName = "Binder Artifacts";
-                    deckFormat = Format.CASUAL;
+                    deckName = "Binder White";
+                    deckFormat = DeckFormat.CASUAL;
                     break;
                 case 18:
-                    deckName = "Binder Lands";
-                    deckFormat = Format.CASUAL;
+                    deckName = "Binder Artifacts/Lands";
+                    deckFormat = DeckFormat.CASUAL;
                     break;
                 case 19:
                     deckName = "Investments";
-                    deckFormat = Format.CASUAL;
+                    deckFormat = DeckFormat.CASUAL;
                     break;
                 case 20:
                     deckName = "Investments Inventions";
-                    deckFormat = Format.CASUAL;
+                    deckFormat = DeckFormat.CASUAL;
                     break;
                 case 21:
                     deckName = "Investments Toppers";
-                    deckFormat = Format.CASUAL;
+                    deckFormat = DeckFormat.CASUAL;
                     break;
                 case 22:
                     deckName = "Unsorted";
-                    deckFormat = Format.CASUAL;
+                    deckFormat = DeckFormat.CASUAL;
                     break;
                 default:
                     throw new java.lang.Error("Invalid deck number.");
             }
 
-            DeckEntity deckEntity = DeckEntity.builder().name(deckName).format(deckFormat).build();
+            DeckEntity deckEntity = DeckEntity.builder().name(deckName).deckFormat(deckFormat).build();
             deckRepository.save(deckEntity);
+
+            double aggregateValue = 0;
 
             for (String card : deck) {
 
@@ -190,13 +194,21 @@ public class DataMigrationServiceImpl implements DataMigrationService {
                 cardEntity.setProductConditionId(tcgService.fetchProductConditionId(cardConverter.convert(cardEntity)));
                 cardEntity.setMarketPrice(tcgService.fetchMarketPrice(cardEntity.getProductConditionId()));
 
+                aggregateValue += cardEntity.getMarketPrice();
+
                 deckEntity.getCardEntities().add(cardEntity);
             }
 
+            deckEntity.getDeckSnapshotEntities().add(DeckSnapshotEntity.builder()
+                    .value(aggregateValue)
+                    .timestamp(LocalDateTime.now())
+                    .deckEntity(deckEntity)
+                    .build());
             deckRepository.save(deckEntity);
-            deckNumber++;
-        }
 
+            deckNumber++;
+            aggregateValue = 0;
+        }
     }
 
     private void readFolder(String path) {
