@@ -13,7 +13,7 @@ public class Deck {
 
     private String name;
 
-    private Format format;
+    private String format;
 
     private List<Card> cards;
 

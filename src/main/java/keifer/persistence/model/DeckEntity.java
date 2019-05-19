@@ -1,6 +1,6 @@
 package keifer.persistence.model;
 
-import keifer.api.model.Format;
+import keifer.service.model.DeckFormat;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -26,10 +26,14 @@ public class DeckEntity {
     private String name;
 
     @Column(nullable = false)
-    private Format format;
+    private DeckFormat deckFormat;
 
     @Builder.Default
     @OneToMany(mappedBy = "deckEntity", cascade = CascadeType.ALL)
     private List<CardEntity> cardEntities = new ArrayList<>();
+
+    @Builder.Default
+    @OneToMany(mappedBy = "deckEntity", cascade = CascadeType.ALL)
+    private List<DeckSnapshotEntity> deckSnapshotEntities = new ArrayList<>();
 
 }

@@ -2,7 +2,6 @@ package keifer.service;
 
 
 import keifer.api.model.Card;
-import keifer.api.model.CardCondition;
 import keifer.service.model.YAMLConfig;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -26,20 +25,6 @@ public class TcgServiceImpl implements TcgService {
     public TcgServiceImpl(YAMLConfig yamlConfig) {
         this.yamlConfig = yamlConfig;
         token = getToken();
-    }
-
-    @Override
-    public void test() {
-
-        String productConditionId = fetchProductConditionId(Card.builder()
-                .name("Arcbound Ravager")
-                .version("Darksteel")
-                .cardCondition(CardCondition.NEAR_MINT)
-                .isFoil(true).build());
-
-        double marketPrice = fetchMarketPrice(productConditionId);
-
-        int x = 0;
     }
 
     private String getToken() {
