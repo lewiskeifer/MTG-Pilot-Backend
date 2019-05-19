@@ -19,7 +19,7 @@ public class Card {
 
     private Boolean isFoil;
 
-    private CardCondition cardCondition;
+    private String cardCondition;
 
     private Double purchasePrice;
 

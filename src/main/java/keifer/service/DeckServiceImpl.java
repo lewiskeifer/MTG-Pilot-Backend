@@ -1,7 +1,6 @@
 package keifer.service;
 
 import keifer.api.model.Card;
-import keifer.api.model.CardCondition;
 import keifer.api.model.Deck;
 import keifer.converter.CardConverter;
 import keifer.converter.DeckConverter;
@@ -9,9 +8,12 @@ import keifer.persistence.CardRepository;
 import keifer.persistence.DeckRepository;
 import keifer.persistence.model.CardEntity;
 import keifer.persistence.model.DeckEntity;
+import keifer.persistence.model.DeckSnapshotEntity;
+import keifer.service.model.CardCondition;
 import lombok.NonNull;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -73,7 +75,14 @@ public class DeckServiceImpl implements DeckService {
                 deckValue += (card.getMarketPrice() * card.getQuantity());
             }
 
-            deck.getCards().add(Card.builder().id(count++).name(newDeck.getName()).version("").cardCondition(CardCondition.NEAR_MINT).purchasePrice(0.0).quantity(1).marketPrice(deckValue).build());
+            deck.getCards().add(Card.builder()
+                    .id(count++)
+                    .name(newDeck.getName())
+                    .version("")
+                    .purchasePrice(0.0)
+                    .quantity(1)
+                    .marketPrice(deckValue)
+                    .build());
         }
 
         return deck;
@@ -91,7 +100,7 @@ public class DeckServiceImpl implements DeckService {
                 .name(card.getName())
                 .version(card.getVersion())
                 .isFoil(card.getIsFoil())
-                .cardCondition(card.getCardCondition())
+                .cardCondition(CardCondition.valueOf(card.getCardCondition()))
                 .purchasePrice(card.getPurchasePrice())
                 .quantity(card.getQuantity())
                 .productConditionId(productConditionId)
@@ -116,21 +125,27 @@ public class DeckServiceImpl implements DeckService {
 
         // Deck Overview
         if (deckId == 0) {
-            List<CardEntity> cardEntities = cardRepository.findAll();
-            for (CardEntity cardEntity : cardEntities) {
-                cardEntity.setMarketPrice(tcgService.fetchMarketPrice(cardEntity.getProductConditionId()));
-                cardRepository.save(cardEntity);
+            List<DeckEntity> deckEntities = deckRepository.findAll();
+            for (DeckEntity deckEntity : deckEntities) {
+                double aggregateValue = 0;
+                for (CardEntity cardEntity : deckEntity.getCardEntities()) {
+                    aggregateValue += saveCardEntity(cardEntity);
+                }
+
+                saveDeckEntitySnapshot(deckEntity, aggregateValue);
             }
 
             return;
         }
 
         DeckEntity deckEntity = fetchDeck(deckId);
+        double aggregateValue = 0;
 
         for (CardEntity cardEntity : deckEntity.getCardEntities()) {
-            cardEntity.setMarketPrice(tcgService.fetchMarketPrice(cardEntity.getProductConditionId()));
-            cardRepository.save(cardEntity);
+            aggregateValue += saveCardEntity(cardEntity);
         }
+
+        saveDeckEntitySnapshot(deckEntity, aggregateValue);
     }
 
     private DeckEntity fetchDeck(Long deckId) {
@@ -141,5 +156,24 @@ public class DeckServiceImpl implements DeckService {
         }
 
         return deckEntity;
+    }
+
+    private double saveCardEntity(CardEntity cardEntity) {
+
+        cardEntity.setMarketPrice(tcgService.fetchMarketPrice(cardEntity.getProductConditionId()));
+        cardRepository.save(cardEntity);
+
+        return cardEntity.getMarketPrice();
+    }
+
+    private void saveDeckEntitySnapshot(DeckEntity deckEntity, double aggregateValue) {
+
+        deckEntity.getDeckSnapshotEntities().add(DeckSnapshotEntity.builder()
+                .value(aggregateValue)
+                .timestamp(LocalDateTime.now())
+                .deckEntity(deckEntity)
+                .build());
+
+        deckRepository.save(deckEntity);
     }
 }

@@ -14,7 +14,7 @@ public class CardConverter {
                 .name(source.getName())
                 .version(source.getVersion())
                 .isFoil(source.getIsFoil())
-                .cardCondition(source.getCardCondition())
+                .cardCondition(source.getCardCondition().toString())
                 .purchasePrice(source.getPurchasePrice())
                 .quantity(source.getQuantity())
                 .marketPrice(source.getMarketPrice())
