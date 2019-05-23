@@ -129,7 +129,7 @@ public class DeckServiceImpl implements DeckService {
             for (DeckEntity deckEntity : deckEntities) {
                 double aggregateValue = 0;
                 for (CardEntity cardEntity : deckEntity.getCardEntities()) {
-                    aggregateValue += saveCardEntity(cardEntity);
+                    aggregateValue += (saveCardEntity(cardEntity) * cardEntity.getQuantity());
                 }
 
                 saveDeckEntitySnapshot(deckEntity, aggregateValue);
@@ -142,7 +142,7 @@ public class DeckServiceImpl implements DeckService {
         double aggregateValue = 0;
 
         for (CardEntity cardEntity : deckEntity.getCardEntities()) {
-            aggregateValue += saveCardEntity(cardEntity);
+            aggregateValue += (saveCardEntity(cardEntity) * cardEntity.getQuantity());
         }
 
         saveDeckEntitySnapshot(deckEntity, aggregateValue);
