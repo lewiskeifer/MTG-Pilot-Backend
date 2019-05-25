@@ -194,7 +194,7 @@ public class DataMigrationServiceImpl implements DataMigrationService {
                 cardEntity.setProductConditionId(tcgService.fetchProductConditionId(cardConverter.convert(cardEntity)));
                 cardEntity.setMarketPrice(tcgService.fetchMarketPrice(cardEntity.getProductConditionId()));
 
-                aggregateValue += cardEntity.getMarketPrice();
+                aggregateValue += (cardEntity.getMarketPrice() * cardEntity.getQuantity());
 
                 deckEntity.getCardEntities().add(cardEntity);
             }
@@ -207,7 +207,6 @@ public class DataMigrationServiceImpl implements DataMigrationService {
             deckRepository.save(deckEntity);
 
             deckNumber++;
-            aggregateValue = 0;
         }
     }
 

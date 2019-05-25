@@ -168,11 +168,24 @@ public class DeckServiceImpl implements DeckService {
 
     private void saveDeckEntitySnapshot(DeckEntity deckEntity, double aggregateValue) {
 
-        deckEntity.getDeckSnapshotEntities().add(DeckSnapshotEntity.builder()
-                .value(aggregateValue)
-                .timestamp(LocalDateTime.now())
-                .deckEntity(deckEntity)
-                .build());
+        LocalDateTime localDateTime = LocalDateTime.now();
+
+        List <DeckSnapshotEntity> deckSnapshotEntities = deckEntity.getDeckSnapshotEntities();
+
+        if (localDateTime.getDayOfYear() ==
+                deckSnapshotEntities.get(deckEntity.getDeckSnapshotEntities().size() - 1).getTimestamp().getDayOfYear()) {
+
+            System.out.println("Snapshot found for today, overwriting.");
+
+            deckEntity.getDeckSnapshotEntities().get(deckSnapshotEntities.size() - 1).setValue(aggregateValue);
+        }
+        else {
+            deckEntity.getDeckSnapshotEntities().add(DeckSnapshotEntity.builder()
+                    .value(aggregateValue)
+                    .timestamp(LocalDateTime.now())
+                    .deckEntity(deckEntity)
+                    .build());
+        }
 
         deckRepository.save(deckEntity);
     }
