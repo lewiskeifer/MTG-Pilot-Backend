@@ -93,7 +93,7 @@ public class DeckServiceImpl implements DeckService {
 
         DeckEntity deckEntity = fetchDeck(deckId);
 
-        String productConditionId = tcgService.fetchProductConditionId(card);
+        String productConditionId = tcgService.fetchProductConditionIdAndUrl(card).get("productConditionId");
         double marketPrice = tcgService.fetchMarketPrice(productConditionId);
 
         CardEntity cardEntity = CardEntity.builder()

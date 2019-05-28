@@ -8,6 +8,7 @@ import keifer.persistence.model.DeckSnapshotEntity;
 import keifer.service.model.CardCondition;
 import keifer.service.model.DeckFormat;
 import lombok.NonNull;
+import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
@@ -19,6 +20,7 @@ import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 @Service
@@ -191,7 +193,9 @@ public class DataMigrationServiceImpl implements DataMigrationService {
                         throw new java.lang.Error("Invalid condition.");
                 }
 
-                cardEntity.setProductConditionId(tcgService.fetchProductConditionId(cardConverter.convert(cardEntity)));
+                Map<String, String> returnData = tcgService.fetchProductConditionIdAndUrl(cardConverter.convert(cardEntity));
+                cardEntity.setProductConditionId(returnData.get("productConditionId"));
+                cardEntity.setUrl(returnData.get("image"));
                 cardEntity.setMarketPrice(tcgService.fetchMarketPrice(cardEntity.getProductConditionId()));
 
                 aggregateValue += (cardEntity.getMarketPrice() * cardEntity.getQuantity());
