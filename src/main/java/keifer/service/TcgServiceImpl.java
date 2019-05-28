@@ -1,6 +1,7 @@
 package keifer.service;
 
 
+import com.google.common.collect.ImmutableMap;
 import keifer.api.model.Card;
 import keifer.service.model.YAMLConfig;
 import lombok.AllArgsConstructor;
@@ -15,6 +16,7 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class TcgServiceImpl implements TcgService {
@@ -39,7 +41,7 @@ public class TcgServiceImpl implements TcgService {
     }
 
     // TODO language support
-    public String fetchProductConditionId(Card card) {
+    public Map<String, String> fetchProductConditionIdAndUrl(Card card) {
 
         RestTemplate restTemplate = new RestTemplate();
         HttpHeaders headers = new HttpHeaders();
@@ -60,17 +62,17 @@ public class TcgServiceImpl implements TcgService {
 
                 for (ProductCondition productCondition : result.getProductConditions()) {
 
-                    String condition = card.getIsFoil() ? card.getCardCondition().toString() + " Foil" : card.getCardCondition().toString();
+                    String condition = card.getIsFoil() ? card.getCardCondition() + " Foil" : card.getCardCondition();
                     if (productCondition.getName().equals(condition)) {
-                        return productCondition.getProductConditionId();
+                        return ImmutableMap.of("productConditionId", productCondition.getProductConditionId(), "image", result.getImage());
                     }
                 }
             }
         } catch (HttpClientErrorException e) {
-            return "";
+            return ImmutableMap.of("productConditionId", "", "image", "");
         }
 
-        return "";
+        return ImmutableMap.of("productConditionId", "", "image", "");
     }
 
     public double fetchMarketPrice(String productConditionId) {
