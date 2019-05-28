@@ -8,7 +8,6 @@ import keifer.persistence.model.DeckSnapshotEntity;
 import keifer.service.model.CardCondition;
 import keifer.service.model.DeckFormat;
 import lombok.NonNull;
-import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;

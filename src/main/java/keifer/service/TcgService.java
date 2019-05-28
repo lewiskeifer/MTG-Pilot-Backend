@@ -1,7 +1,6 @@
 package keifer.service;
 
 import keifer.api.model.Card;
-import org.springframework.data.util.Pair;
 
 import java.util.Map;
 

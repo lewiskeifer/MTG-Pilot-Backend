@@ -81,6 +81,7 @@ public class DeckServiceImpl implements DeckService {
                     .version("")
                     .purchasePrice(0.0)
                     .quantity(1)
+                    .url("")
                     .marketPrice(deckValue)
                     .build());
         }
