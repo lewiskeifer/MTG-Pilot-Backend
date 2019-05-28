@@ -25,6 +25,8 @@ public class Card {
 
     private Integer quantity;
 
+    private String url;
+
     private Double marketPrice;
 
 }

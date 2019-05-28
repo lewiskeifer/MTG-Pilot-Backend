@@ -81,6 +81,7 @@ public class DeckServiceImpl implements DeckService {
                     .version("")
                     .purchasePrice(0.0)
                     .quantity(1)
+                    .url("")
                     .marketPrice(deckValue)
                     .build());
         }
@@ -93,7 +94,7 @@ public class DeckServiceImpl implements DeckService {
 
         DeckEntity deckEntity = fetchDeck(deckId);
 
-        String productConditionId = tcgService.fetchProductConditionId(card);
+        String productConditionId = tcgService.fetchProductConditionIdAndUrl(card).get("productConditionId");
         double marketPrice = tcgService.fetchMarketPrice(productConditionId);
 
         CardEntity cardEntity = CardEntity.builder()
@@ -129,7 +130,7 @@ public class DeckServiceImpl implements DeckService {
             for (DeckEntity deckEntity : deckEntities) {
                 double aggregateValue = 0;
                 for (CardEntity cardEntity : deckEntity.getCardEntities()) {
-                    aggregateValue += saveCardEntity(cardEntity);
+                    aggregateValue += (saveCardEntity(cardEntity) * cardEntity.getQuantity());
                 }
 
                 saveDeckEntitySnapshot(deckEntity, aggregateValue);
@@ -142,7 +143,7 @@ public class DeckServiceImpl implements DeckService {
         double aggregateValue = 0;
 
         for (CardEntity cardEntity : deckEntity.getCardEntities()) {
-            aggregateValue += saveCardEntity(cardEntity);
+            aggregateValue += (saveCardEntity(cardEntity) * cardEntity.getQuantity());
         }
 
         saveDeckEntitySnapshot(deckEntity, aggregateValue);
@@ -168,11 +169,24 @@ public class DeckServiceImpl implements DeckService {
 
     private void saveDeckEntitySnapshot(DeckEntity deckEntity, double aggregateValue) {
 
-        deckEntity.getDeckSnapshotEntities().add(DeckSnapshotEntity.builder()
-                .value(aggregateValue)
-                .timestamp(LocalDateTime.now())
-                .deckEntity(deckEntity)
-                .build());
+        LocalDateTime localDateTime = LocalDateTime.now();
+
+        List <DeckSnapshotEntity> deckSnapshotEntities = deckEntity.getDeckSnapshotEntities();
+
+        if (localDateTime.getDayOfYear() ==
+                deckSnapshotEntities.get(deckEntity.getDeckSnapshotEntities().size() - 1).getTimestamp().getDayOfYear()) {
+
+            System.out.println("Snapshot found for today, overwriting.");
+
+            deckEntity.getDeckSnapshotEntities().get(deckSnapshotEntities.size() - 1).setValue(aggregateValue);
+        }
+        else {
+            deckEntity.getDeckSnapshotEntities().add(DeckSnapshotEntity.builder()
+                    .value(aggregateValue)
+                    .timestamp(LocalDateTime.now())
+                    .deckEntity(deckEntity)
+                    .build());
+        }
 
         deckRepository.save(deckEntity);
     }

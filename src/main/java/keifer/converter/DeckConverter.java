@@ -11,9 +11,11 @@ import java.util.stream.Collectors;
 public class DeckConverter {
 
     private final CardConverter cardConverter;
+    private final DeckSnapshotConverter deckSnapshotConverter;
 
-    public DeckConverter(@NonNull CardConverter cardConverter) {
+    public DeckConverter(@NonNull CardConverter cardConverter, @NonNull DeckSnapshotConverter deckSnapshotConverter) {
         this.cardConverter = cardConverter;
+        this.deckSnapshotConverter = deckSnapshotConverter;
     }
 
     public Deck convert(DeckEntity source) {
@@ -22,9 +24,10 @@ public class DeckConverter {
                 .id(source.getId())
                 .name(source.getName())
                 .format(source.getDeckFormat().toString())
-                .cards(source.getCardEntities().stream().map(cardConverter::convert).collect(Collectors.toList()))
+                .cards(source.getCardEntities().stream()
+                        .map(cardConverter::convert).collect(Collectors.toList()))
+                .deckSnapshots(source.getDeckSnapshotEntities().stream()
+                        .map(deckSnapshotConverter::convert).collect(Collectors.toList()))
                 .build();
-
     }
-
 }

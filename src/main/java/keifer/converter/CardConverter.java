@@ -17,6 +17,7 @@ public class CardConverter {
                 .cardCondition(source.getCardCondition().toString())
                 .purchasePrice(source.getPurchasePrice())
                 .quantity(source.getQuantity())
+                .url(source.getUrl())
                 .marketPrice(source.getMarketPrice())
                 .build();
     }

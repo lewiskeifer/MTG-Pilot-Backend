@@ -39,6 +39,8 @@ public class CardEntity {
     @Column(nullable = false)
     private Integer quantity;
 
+    private String url;
+
     private String productConditionId;
 
     private Double marketPrice;
