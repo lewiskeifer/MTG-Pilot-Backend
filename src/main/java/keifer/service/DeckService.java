@@ -11,8 +11,14 @@ public interface DeckService {
 
     Deck getDeck(Long deckId);
 
-    void saveCard(Long deckId, Card card);
+    Card saveCard(Long deckId, Card card);
+
+    void saveDeck(Deck deck);
 
     void refreshDeck(Long deckId);
+
+    void deleteCard(Long cardId);
+
+    void deleteDeck(Long deckId);
 
 }

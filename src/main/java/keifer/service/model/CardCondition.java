@@ -2,11 +2,30 @@ package keifer.service.model;
 
 public enum CardCondition {
 
-    NEAR_MINT,
-    LIGHT_PLAY,
-    MODERATE_PLAY,
-    HEAVY_PLAY,
-    DAMAGED;
+    NEAR_MINT("Near Mint"),
+    LIGHT_PLAY("Lightly Played"),
+    MODERATE_PLAY("Moderately Played"),
+    HEAVY_PLAY("Heavily Played"),
+    DAMAGED("Damaged");
+
+    private String text;
+
+    CardCondition(String text) {
+        this.text = text;
+    }
+
+    public String getText() {
+        return this.text;
+    }
+
+    public static CardCondition fromString(String text) {
+        for (CardCondition c : CardCondition.values()) {
+            if (c.text.equalsIgnoreCase(text)) {
+                return c;
+            }
+        }
+        return null;
+    }
 
     @Override
     public String toString() {

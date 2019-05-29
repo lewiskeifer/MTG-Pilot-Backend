@@ -10,12 +10,14 @@ import keifer.persistence.model.CardEntity;
 import keifer.persistence.model.DeckEntity;
 import keifer.persistence.model.DeckSnapshotEntity;
 import keifer.service.model.CardCondition;
+import keifer.service.model.DeckFormat;
 import lombok.NonNull;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -89,22 +91,25 @@ public class DeckServiceImpl implements DeckService {
         return deck;
     }
 
+    // TODO null checking on incoming object
+
     @Override
-    public void saveCard(Long deckId, Card card) {
+    public Card saveCard(Long deckId, Card card) {
 
         DeckEntity deckEntity = fetchDeck(deckId);
 
-        String productConditionId = tcgService.fetchProductConditionIdAndUrl(card).get("productConditionId");
-        double marketPrice = tcgService.fetchMarketPrice(productConditionId);
+        Map<String, String> results = tcgService.fetchProductConditionIdAndUrl(card);
+        double marketPrice = tcgService.fetchMarketPrice(results.get("productConditionId"));
 
         CardEntity cardEntity = CardEntity.builder()
                 .name(card.getName())
                 .version(card.getVersion())
                 .isFoil(card.getIsFoil())
-                .cardCondition(CardCondition.valueOf(card.getCardCondition()))
+                .cardCondition(CardCondition.fromString(card.getCardCondition()))
                 .purchasePrice(card.getPurchasePrice())
                 .quantity(card.getQuantity())
-                .productConditionId(productConditionId)
+                .productConditionId(results.get("productConditionId"))
+                .url(results.get("image"))
                 .marketPrice(marketPrice)
                 .deckEntity(deckEntity)
                 .build();
@@ -119,6 +124,27 @@ public class DeckServiceImpl implements DeckService {
             cardEntity.setId(card.getId());
             cardRepository.save(cardEntity);
         }
+
+        return cardConverter.convert(cardEntity);
+    }
+
+    @Override
+    public void saveDeck(Deck deck) {
+
+        DeckEntity deckEntity = null;
+
+        if (deck.getId() == null) {
+            deckEntity = DeckEntity.builder()
+                    .name(deck.getName())
+                    .deckFormat(DeckFormat.fromString("Casual")) //TODO
+                    .build();
+        }
+        else {
+            deckEntity = fetchDeck(deck.getId());
+            deckEntity.setName(deck.getName());
+        }
+
+        deckRepository.save(deckEntity);
     }
 
     @Override
@@ -147,6 +173,20 @@ public class DeckServiceImpl implements DeckService {
         }
 
         saveDeckEntitySnapshot(deckEntity, aggregateValue);
+    }
+
+    @Override
+    public void deleteCard(Long cardId) {
+
+        cardRepository.deleteById(cardId);
+    }
+
+    @Override
+    public void deleteDeck(Long deckId) {
+
+        DeckEntity deckEntity = fetchDeck(deckId);
+
+        deckRepository.delete(deckEntity);
     }
 
     private DeckEntity fetchDeck(Long deckId) {
