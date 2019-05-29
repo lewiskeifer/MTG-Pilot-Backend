@@ -121,6 +121,17 @@ public class DeckServiceImpl implements DeckService {
         }
     }
 
+    // Currently only supports updating deck name
+
+    @Override
+    public void saveDeck(Long deckId, Deck deck) {
+
+        DeckEntity deckEntity = fetchDeck(deckId);
+        deckEntity.setName(deck.getName());
+
+        deckRepository.save(deckEntity);
+    }
+
     @Override
     public void refreshDeck(Long deckId) {
 

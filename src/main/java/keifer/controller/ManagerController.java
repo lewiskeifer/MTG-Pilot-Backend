@@ -36,9 +36,14 @@ public class ManagerController {
         return deckService.getDeck(deckId);
     }
 
-    @PutMapping("/decks/{deckId}")
+    @PutMapping("/decks/{deckId}/card")
     public void saveCard(@PathVariable("deckId") Long deckId, @RequestBody Card card) {
         deckService.saveCard(deckId, card);
+    }
+
+    @PutMapping("/decks/{deckId}")
+    public void saveDeck(@PathVariable("deckId") Long deckId, @RequestBody Deck deck) {
+        deckService.saveDeck(deckId, deck);
     }
 
     @PutMapping("/decks/{deckId}/refresh")
