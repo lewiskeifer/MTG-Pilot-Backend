@@ -1,12 +1,13 @@
 package keifer.api.model;
 
-import lombok.Builder;
-import lombok.Value;
+import lombok.*;
 
 import java.util.List;
 
-@Value
+@Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class Deck {
 
     private Long id;
