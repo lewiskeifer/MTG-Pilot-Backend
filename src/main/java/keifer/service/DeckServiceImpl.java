@@ -10,6 +10,7 @@ import keifer.persistence.model.CardEntity;
 import keifer.persistence.model.DeckEntity;
 import keifer.persistence.model.DeckSnapshotEntity;
 import keifer.service.model.CardCondition;
+import keifer.service.model.DeckFormat;
 import lombok.NonNull;
 import org.springframework.stereotype.Service;
 
@@ -127,13 +128,21 @@ public class DeckServiceImpl implements DeckService {
         return cardConverter.convert(cardEntity);
     }
 
-    // Currently only supports updating deck name
-
     @Override
-    public void saveDeck(Long deckId, Deck deck) {
+    public void saveDeck(Deck deck) {
 
-        DeckEntity deckEntity = fetchDeck(deckId);
-        deckEntity.setName(deck.getName());
+        DeckEntity deckEntity = null;
+
+        if (deck.getId() == null) {
+            deckEntity = DeckEntity.builder()
+                    .name(deck.getName())
+                    .deckFormat(DeckFormat.fromString("Casual")) //TODO
+                    .build();
+        }
+        else {
+            deckEntity = fetchDeck(deck.getId());
+            deckEntity.setName(deck.getName());
+        }
 
         deckRepository.save(deckEntity);
     }
@@ -164,6 +173,20 @@ public class DeckServiceImpl implements DeckService {
         }
 
         saveDeckEntitySnapshot(deckEntity, aggregateValue);
+    }
+
+    @Override
+    public void deleteCard(Long cardId) {
+
+        cardRepository.deleteById(cardId);
+    }
+
+    @Override
+    public void deleteDeck(Long deckId) {
+
+        DeckEntity deckEntity = fetchDeck(deckId);
+
+        deckRepository.delete(deckEntity);
     }
 
     private DeckEntity fetchDeck(Long deckId) {
