@@ -20,7 +20,9 @@ public class ManagerController {
     private final DataMigrationService dataMigrationService;
     private final TcgService tcgService;
 
-    public ManagerController(@NonNull DeckService deckService, @NonNull DataMigrationService dataMigrationService, @NonNull TcgService tcgService) {
+    public ManagerController(@NonNull DeckService deckService,
+                             @NonNull DataMigrationService dataMigrationService,
+                             @NonNull TcgService tcgService) {
         this.deckService = deckService;
         this.dataMigrationService = dataMigrationService;
         this.tcgService = tcgService;
@@ -37,8 +39,8 @@ public class ManagerController {
     }
 
     @PutMapping("/decks/{deckId}/card")
-    public void saveCard(@PathVariable("deckId") Long deckId, @RequestBody Card card) {
-        deckService.saveCard(deckId, card);
+    public Card saveCard(@PathVariable("deckId") Long deckId, @RequestBody Card card) {
+        return deckService.saveCard(deckId, card);
     }
 
     @PutMapping("/decks/{deckId}")

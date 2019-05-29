@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -89,22 +90,25 @@ public class DeckServiceImpl implements DeckService {
         return deck;
     }
 
+    // TODO null checking on incoming object
+
     @Override
-    public void saveCard(Long deckId, Card card) {
+    public Card saveCard(Long deckId, Card card) {
 
         DeckEntity deckEntity = fetchDeck(deckId);
 
-        String productConditionId = tcgService.fetchProductConditionIdAndUrl(card).get("productConditionId");
-        double marketPrice = tcgService.fetchMarketPrice(productConditionId);
+        Map<String, String> results = tcgService.fetchProductConditionIdAndUrl(card);
+        double marketPrice = tcgService.fetchMarketPrice(results.get("productConditionId"));
 
         CardEntity cardEntity = CardEntity.builder()
                 .name(card.getName())
                 .version(card.getVersion())
                 .isFoil(card.getIsFoil())
-                .cardCondition(CardCondition.valueOf(card.getCardCondition()))
+                .cardCondition(CardCondition.fromString(card.getCardCondition()))
                 .purchasePrice(card.getPurchasePrice())
                 .quantity(card.getQuantity())
-                .productConditionId(productConditionId)
+                .productConditionId(results.get("productConditionId"))
+                .url(results.get("image"))
                 .marketPrice(marketPrice)
                 .deckEntity(deckEntity)
                 .build();
@@ -119,6 +123,8 @@ public class DeckServiceImpl implements DeckService {
             cardEntity.setId(card.getId());
             cardRepository.save(cardEntity);
         }
+
+        return cardConverter.convert(cardEntity);
     }
 
     // Currently only supports updating deck name
