@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class DeckSnapshot {
 
+    private Double purchasePrice;
     private Double value;
     private LocalDateTime timestamp;
 }

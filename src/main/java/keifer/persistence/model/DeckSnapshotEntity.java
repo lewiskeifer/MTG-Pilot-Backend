@@ -21,6 +21,9 @@ public class DeckSnapshotEntity {
     private Long id;
 
     @Column(nullable = false)
+    private Double purchasePrice;
+
+    @Column(nullable = false)
     private Double value;
 
     @Column(nullable = false)
