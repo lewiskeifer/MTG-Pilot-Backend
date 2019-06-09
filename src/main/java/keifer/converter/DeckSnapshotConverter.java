@@ -10,6 +10,7 @@ public class DeckSnapshotConverter {
     public DeckSnapshot convert(DeckSnapshotEntity source) {
 
         return DeckSnapshot.builder()
+                .purchasePrice(source.getPurchasePrice())
                 .value(source.getValue())
                 .timestamp(source.getTimestamp())
                 .build();

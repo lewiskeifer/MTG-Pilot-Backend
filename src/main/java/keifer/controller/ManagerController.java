@@ -65,7 +65,7 @@ public class ManagerController {
 
     @GetMapping("/migrate")
     public void migrate() {
-        dataMigrationService.migrateData();
+        dataMigrationService.migrateTextData();
     }
 
 }

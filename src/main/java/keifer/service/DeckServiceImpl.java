@@ -154,25 +154,34 @@ public class DeckServiceImpl implements DeckService {
         if (deckId == 0) {
             List<DeckEntity> deckEntities = deckRepository.findAll();
             for (DeckEntity deckEntity : deckEntities) {
+
+                if (deckEntity.getName().equals("Binder Colorless")) {
+                    int x =0;
+                }
+
+                double aggregatePurchasePrice = 0;
                 double aggregateValue = 0;
                 for (CardEntity cardEntity : deckEntity.getCardEntities()) {
+                    aggregatePurchasePrice += cardEntity.getPurchasePrice();
                     aggregateValue += (saveCardEntity(cardEntity) * cardEntity.getQuantity());
                 }
 
-                saveDeckEntitySnapshot(deckEntity, aggregateValue);
+                saveDeckEntitySnapshot(deckEntity, aggregatePurchasePrice, aggregateValue);
             }
 
             return;
         }
 
         DeckEntity deckEntity = fetchDeck(deckId);
+        double aggregatePurchasePrice = 0;
         double aggregateValue = 0;
 
         for (CardEntity cardEntity : deckEntity.getCardEntities()) {
+            aggregatePurchasePrice += cardEntity.getPurchasePrice();
             aggregateValue += (saveCardEntity(cardEntity) * cardEntity.getQuantity());
         }
 
-        saveDeckEntitySnapshot(deckEntity, aggregateValue);
+        saveDeckEntitySnapshot(deckEntity, aggregatePurchasePrice, aggregateValue);
     }
 
     @Override
@@ -207,21 +216,24 @@ public class DeckServiceImpl implements DeckService {
         return cardEntity.getMarketPrice();
     }
 
-    private void saveDeckEntitySnapshot(DeckEntity deckEntity, double aggregateValue) {
+    private void saveDeckEntitySnapshot(DeckEntity deckEntity, double aggregatePurchasePrice, double aggregateValue) {
 
         LocalDateTime localDateTime = LocalDateTime.now();
 
         List <DeckSnapshotEntity> deckSnapshotEntities = deckEntity.getDeckSnapshotEntities();
 
-        if (localDateTime.getDayOfYear() ==
+        // TODO will overwrite when last day someone updated a deck happens to be exactly a year ago
+        if (!deckSnapshotEntities.isEmpty() && localDateTime.getDayOfYear() ==
                 deckSnapshotEntities.get(deckEntity.getDeckSnapshotEntities().size() - 1).getTimestamp().getDayOfYear()) {
 
             System.out.println("Snapshot found for today, overwriting.");
 
+            deckEntity.getDeckSnapshotEntities().get(deckSnapshotEntities.size() - 1).setPurchasePrice(aggregatePurchasePrice);
             deckEntity.getDeckSnapshotEntities().get(deckSnapshotEntities.size() - 1).setValue(aggregateValue);
         }
         else {
             deckEntity.getDeckSnapshotEntities().add(DeckSnapshotEntity.builder()
+                    .purchasePrice(aggregatePurchasePrice)
                     .value(aggregateValue)
                     .timestamp(LocalDateTime.now())
                     .deckEntity(deckEntity)

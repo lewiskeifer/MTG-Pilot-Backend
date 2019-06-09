@@ -7,6 +7,6 @@ This service uses values hard-coded to my machine and is of little value elsewhe
 
 public interface DataMigrationService {
 
-    void migrateData();
+    void migrateTextData();
 
 }
