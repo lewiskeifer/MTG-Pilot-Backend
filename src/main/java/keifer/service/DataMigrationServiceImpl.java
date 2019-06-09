@@ -43,7 +43,7 @@ public class DataMigrationServiceImpl implements DataMigrationService {
     }
 
     @Override
-    public void migrateData() {
+    public void migrateTextData() {
 
         readFolder(folderPath);
 
@@ -150,6 +150,7 @@ public class DataMigrationServiceImpl implements DataMigrationService {
             DeckEntity deckEntity = DeckEntity.builder().name(deckName).deckFormat(deckFormat).build();
             deckRepository.save(deckEntity);
 
+            double aggregatePurchasePrice = 0;
             double aggregateValue = 0;
 
             for (String card : deck) {
@@ -197,12 +198,14 @@ public class DataMigrationServiceImpl implements DataMigrationService {
                 cardEntity.setUrl(returnData.get("image"));
                 cardEntity.setMarketPrice(tcgService.fetchMarketPrice(cardEntity.getProductConditionId()));
 
+                aggregatePurchasePrice += cardEntity.getPurchasePrice();
                 aggregateValue += (cardEntity.getMarketPrice() * cardEntity.getQuantity());
 
                 deckEntity.getCardEntities().add(cardEntity);
             }
 
             deckEntity.getDeckSnapshotEntities().add(DeckSnapshotEntity.builder()
+                    .purchasePrice(aggregatePurchasePrice)
                     .value(aggregateValue)
                     .timestamp(LocalDateTime.now())
                     .deckEntity(deckEntity)
@@ -237,6 +240,18 @@ public class DataMigrationServiceImpl implements DataMigrationService {
         } catch (Exception e) {
             System.err.format("Exception occurred trying to read '%s'.", path.toString());
             e.printStackTrace();
+        }
+    }
+
+    // Currently unused
+    public void migrateSqlData() {
+        List<DeckEntity> deckEntities = deckRepository.findAll();
+
+        for (DeckEntity deckEntity : deckEntities) {
+            for (DeckSnapshotEntity deckSnapshotEntity : deckEntity.getDeckSnapshotEntities()) {
+                deckSnapshotEntity.setPurchasePrice(0.0);
+            }
+            deckRepository.save(deckEntity);
         }
     }
 
