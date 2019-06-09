@@ -154,6 +154,11 @@ public class DeckServiceImpl implements DeckService {
         if (deckId == 0) {
             List<DeckEntity> deckEntities = deckRepository.findAll();
             for (DeckEntity deckEntity : deckEntities) {
+
+                if (deckEntity.getName().equals("Binder Colorless")) {
+                    int x =0;
+                }
+
                 double aggregatePurchasePrice = 0;
                 double aggregateValue = 0;
                 for (CardEntity cardEntity : deckEntity.getCardEntities()) {
@@ -217,7 +222,8 @@ public class DeckServiceImpl implements DeckService {
 
         List <DeckSnapshotEntity> deckSnapshotEntities = deckEntity.getDeckSnapshotEntities();
 
-        if (localDateTime.getDayOfYear() ==
+        // TODO will overwrite when last day someone updated a deck happens to be exactly a year ago
+        if (!deckSnapshotEntities.isEmpty() && localDateTime.getDayOfYear() ==
                 deckSnapshotEntities.get(deckEntity.getDeckSnapshotEntities().size() - 1).getTimestamp().getDayOfYear()) {
 
             System.out.println("Snapshot found for today, overwriting.");
