@@ -14,15 +14,15 @@ import java.util.List;
 @Api
 @RequestMapping("/manager")
 @RestController
-public class ManagerController {
+public class DecksController {
 
     private final DeckService deckService;
     private final DataMigrationService dataMigrationService;
     private final TcgService tcgService;
 
-    public ManagerController(@NonNull DeckService deckService,
-                             @NonNull DataMigrationService dataMigrationService,
-                             @NonNull TcgService tcgService) {
+    public DecksController(@NonNull DeckService deckService,
+                           @NonNull DataMigrationService dataMigrationService,
+                           @NonNull TcgService tcgService) {
         this.deckService = deckService;
         this.dataMigrationService = dataMigrationService;
         this.tcgService = tcgService;
@@ -63,9 +63,19 @@ public class ManagerController {
         deckService.deleteDeck(deckId);
     }
 
-    @GetMapping("/migrate")
-    public void migrate() {
+    @GetMapping("/migrateText")
+    public void migrateText() {
         dataMigrationService.migrateTextData();
+    }
+
+    @GetMapping("/migrateJson")
+    public void migrateJson() {
+        dataMigrationService.migrateJsonData();
+    }
+
+    @GetMapping("/migrateSql")
+    public void migrateSql() {
+        dataMigrationService.migrateSqlData();
     }
 
 }

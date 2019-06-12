@@ -1,13 +1,23 @@
 package keifer.service;
 
+import keifer.api.model.Card;
+import keifer.api.model.DeckSnapshot;
 import keifer.converter.CardConverter;
+import keifer.converter.DeckSnapshotConverter;
+import keifer.persistence.CardRepository;
 import keifer.persistence.DeckRepository;
+import keifer.persistence.UserRepository;
 import keifer.persistence.model.CardEntity;
 import keifer.persistence.model.DeckEntity;
 import keifer.persistence.model.DeckSnapshotEntity;
+import keifer.persistence.model.UserEntity;
 import keifer.service.model.CardCondition;
 import keifer.service.model.DeckFormat;
 import lombok.NonNull;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
@@ -17,27 +27,40 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Service
 public class DataMigrationServiceImpl implements DataMigrationService {
 
+    private final UserRepository userRepository;
     private final DeckRepository deckRepository;
+    private final CardRepository cardRepository;
     private final TcgService tcgService;
+    private final DeckSnapshotConverter deckSnapshotConverter;
     private final CardConverter cardConverter;
     private List<List<String>> data;
 
     // TODO move to configs
-    private String folderPath = "C:\\Users\\Keifer\\Desktop\\MTG\\main\\input";
+    private String textFolderPath = "C:\\Users\\Keifer\\Desktop\\MTG\\main\\input";
+    private String jsonPath = "C:\\Users\\Keifer\\Desktop\\JSON.json";
 
-    public DataMigrationServiceImpl(@NonNull DeckRepository deckRepository,
+    public DataMigrationServiceImpl(@NonNull UserRepository userRepository,
+                                    @NonNull DeckRepository deckRepository,
+                                    @NonNull CardRepository cardRepository,
                                     @NonNull TcgService tcgService,
+                                    @NonNull DeckSnapshotConverter deckSnapshotConverter,
                                     @NonNull CardConverter cardConverter) {
+        this.userRepository = userRepository;
         this.deckRepository = deckRepository;
+        this.cardRepository = cardRepository;
         this.tcgService = tcgService;
+        this.deckSnapshotConverter = deckSnapshotConverter;
         this.cardConverter = cardConverter;
         this.data = new ArrayList<>();
     }
@@ -45,7 +68,7 @@ public class DataMigrationServiceImpl implements DataMigrationService {
     @Override
     public void migrateTextData() {
 
-        readFolder(folderPath);
+        readFolder(textFolderPath);
 
         int deckNumber = 1;
         for (List<String> deck : data) {
@@ -216,6 +239,123 @@ public class DataMigrationServiceImpl implements DataMigrationService {
         }
     }
 
+    public void migrateJsonData() {
+
+        Object obj = null;
+        try {
+            obj = new JSONParser().parse(new FileReader(jsonPath));
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+
+        JSONArray ja = (JSONArray) obj;
+        ja.forEach(this::parseJson);
+
+    }
+
+    private void parseJson(Object jsonObject) {
+
+        JSONObject jo = (JSONObject) jsonObject;
+        if ((long)jo.get("id") == 0L) {
+            return;
+        }
+
+        DeckEntity deckEntity = DeckEntity.builder()
+                .name((String)jo.get("name"))
+                .deckFormat(DeckFormat.fromString((String)jo.get("format")))
+                .build();
+
+        JSONArray jsonArray = (JSONArray)jo.get("cards");
+
+        Iterator it = jsonArray.iterator();
+        while (it.hasNext()) {
+            JSONObject jsonObject1 = (JSONObject)it.next();
+
+            Double marketPrice = 0.0;
+            try {
+                marketPrice = ((Long)(jsonObject1).get("marketPrice")).doubleValue();
+            } catch (ClassCastException e) {
+                marketPrice = (Double)(jsonObject1).get("marketPrice");
+            }
+
+            Double purchasePrice = 0.0;
+            try {
+                purchasePrice = ((Long)(jsonObject1).get("purchasePrice")).doubleValue();
+            } catch (ClassCastException e) {
+                purchasePrice = (Double)(jsonObject1).get("purchasePrice");
+            }
+
+            CardEntity cardEntity = CardEntity.builder()
+                    .marketPrice(marketPrice)
+                    .quantity(((Long)(jsonObject1).get("quantity")).intValue())
+                    .isFoil((Boolean) (jsonObject1).get("isFoil"))
+                    .cardCondition(CardCondition.fromString((String)(jsonObject1).get("cardCondition")))
+                    .name((String)(jsonObject1).get("name"))
+                    .purchasePrice(purchasePrice)
+                    .version((String)(jsonObject1).get("version"))
+                    .url((String)(jsonObject1).get("url"))
+                    .deckEntity(deckEntity)
+                    .build();
+
+            deckEntity.getCardEntities().add(cardEntity);
+        }
+
+        JSONArray jsonArray2 = (JSONArray)jo.get("deckSnapshots");
+
+        Iterator it2 = jsonArray2.iterator();
+        while (it2.hasNext()) {
+            JSONObject jsonObject2 = (JSONObject)it2.next();
+
+            Double purchasePrice = 0.0;
+            try {
+                purchasePrice = ((Long)(jsonObject2).get("purchasePrice")).doubleValue();
+            } catch (ClassCastException e) {
+                purchasePrice = (Double)(jsonObject2).get("purchasePrice");
+            }
+
+            Double value = 0.0;
+            try {
+                value = ((Long)(jsonObject2).get("value")).doubleValue();
+            } catch (ClassCastException e) {
+                value = (Double)(jsonObject2).get("value");
+            }
+
+            DeckSnapshotEntity deckSnapshotEntity = DeckSnapshotEntity.builder()
+                    .purchasePrice(purchasePrice)
+                    .value(value)
+                    .timestamp(LocalDateTime.parse((String)(jsonObject2).get("timestamp"), DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+                    .deckEntity(deckEntity)
+                    .build();
+
+            deckEntity.getDeckSnapshotEntities().add(deckSnapshotEntity);
+        }
+
+        UserEntity userEntity = userRepository.findOneById(1L);
+
+        deckEntity.setUserEntity(userEntity);
+
+        userEntity.getDeckEntities().add(deckEntity);
+        userRepository.save(userEntity);
+    }
+
+    public void migrateSqlData() {
+        List<DeckEntity> deckEntities = deckRepository.findAll();
+
+        for (DeckEntity deckEntity : deckEntities) {
+            if (deckEntity.getName().equals("Binder Colorless")) {
+                continue;
+            }
+            List<DeckSnapshotEntity> deckSnapshotEntities = new ArrayList<>();
+            for (int i = 3; i < 6; ++i) {
+                deckSnapshotEntities.add(deckEntity.getDeckSnapshotEntities().get(i));
+            }
+            deckEntity.setDeckSnapshotEntities(deckSnapshotEntities);
+            deckRepository.save(deckEntity);
+        }
+    }
+
     private void readFolder(String path) {
 
         try (Stream<Path> paths = Files.walk(Paths.get(path))) {
@@ -240,18 +380,6 @@ public class DataMigrationServiceImpl implements DataMigrationService {
         } catch (Exception e) {
             System.err.format("Exception occurred trying to read '%s'.", path.toString());
             e.printStackTrace();
-        }
-    }
-
-    // Currently unused
-    public void migrateSqlData() {
-        List<DeckEntity> deckEntities = deckRepository.findAll();
-
-        for (DeckEntity deckEntity : deckEntities) {
-            for (DeckSnapshotEntity deckSnapshotEntity : deckEntity.getDeckSnapshotEntities()) {
-                deckSnapshotEntity.setPurchasePrice(0.0);
-            }
-            deckRepository.save(deckEntity);
         }
     }
 
