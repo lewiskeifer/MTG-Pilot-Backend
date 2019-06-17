@@ -155,10 +155,6 @@ public class DeckServiceImpl implements DeckService {
             List<DeckEntity> deckEntities = deckRepository.findAll();
             for (DeckEntity deckEntity : deckEntities) {
 
-                if (deckEntity.getName().equals("Binder Colorless")) {
-                    int x =0;
-                }
-
                 double aggregatePurchasePrice = 0;
                 double aggregateValue = 0;
                 for (CardEntity cardEntity : deckEntity.getCardEntities()) {

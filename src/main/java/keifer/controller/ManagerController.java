@@ -3,9 +3,11 @@ package keifer.controller;
 import io.swagger.annotations.Api;
 import keifer.api.model.Card;
 import keifer.api.model.Deck;
+import keifer.api.model.User;
 import keifer.service.DataMigrationService;
 import keifer.service.DeckService;
 import keifer.service.TcgService;
+import keifer.service.UserService;
 import lombok.NonNull;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,19 +16,43 @@ import java.util.List;
 @Api
 @RequestMapping("/manager")
 @RestController
-public class DecksController {
+public class ManagerController {
 
+    private final UserService userService;
     private final DeckService deckService;
     private final DataMigrationService dataMigrationService;
     private final TcgService tcgService;
 
-    public DecksController(@NonNull DeckService deckService,
-                           @NonNull DataMigrationService dataMigrationService,
-                           @NonNull TcgService tcgService) {
+    public ManagerController(@NonNull UserService userService,
+                             @NonNull DeckService deckService,
+                             @NonNull DataMigrationService dataMigrationService,
+                             @NonNull TcgService tcgService) {
+        this.userService = userService;
         this.deckService = deckService;
         this.dataMigrationService = dataMigrationService;
         this.tcgService = tcgService;
     }
+
+    @GetMapping()
+    public List<User> getUsers() {
+        return userService.getUsers();
+    }
+
+    @GetMapping("/{userId}")
+    public User getUser(@PathVariable("userId") Long userId) {
+        return userService.getUser(userId);
+    }
+
+    @PutMapping()
+    public User saveUser(@RequestBody User user) {
+        return userService.saveUser(user);
+    }
+
+    @DeleteMapping("/{userId}")
+    public void deleteUser(@PathVariable("userId") Long userId) {
+        userService.deleteUser(userId);
+    }
+
 
     @GetMapping("/decks")
     public List<Deck> getDecks() {

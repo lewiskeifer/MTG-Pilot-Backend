@@ -1,19 +1,18 @@
 package keifer.service;
 
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
+import keifer.api.model.Login;
 import keifer.api.model.User;
-import keifer.converter.CardConverter;
-import keifer.converter.DeckConverter;
 import keifer.converter.UserConverter;
-import keifer.persistence.CardRepository;
-import keifer.persistence.DeckRepository;
 import keifer.persistence.UserRepository;
 import keifer.persistence.model.UserEntity;
 import lombok.NonNull;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
+import javax.servlet.ServletException;
+import java.util.Date;
 import java.util.List;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -21,10 +20,48 @@ public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final UserConverter userConverter;
+//    private final PasswordEncoder passwordEncoder;
 
-    public UserServiceImpl(@NonNull UserRepository userRepository, @NonNull UserConverter userConverter) {
+    public UserServiceImpl(@NonNull UserRepository userRepository,
+                           @NonNull UserConverter userConverter) {
+//                           @NonNull PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.userConverter = userConverter;
+//        this.passwordEncoder = passwordEncoder;
+    }
+
+    @Override
+    public User login(Login login) throws ServletException {
+
+        String jwtToken;
+
+        if (login.getUsername() == null || login.getPassword() == null) {
+            throw new ServletException("Please fill in username and password.");
+        }
+
+        String username = login.getUsername();
+        String password = login.getPassword();
+
+        UserEntity userEntity = userRepository.findOneByUsername(username);
+
+        if (userEntity == null) {
+            throw new ServletException("Username not found.");
+        }
+
+        // TODO encrypt
+        String pwd = userEntity.getPassword();
+
+        if (!password.equals(pwd)) {
+            throw new ServletException("Invalid login. Please check your name and password.");
+        }
+
+        jwtToken = Jwts.builder().setSubject(username).claim("id", userEntity.getId()).setIssuedAt(new Date())
+                .signWith(SignatureAlgorithm.HS256, "secretkey").compact();
+
+        User user  = userConverter.convert(userEntity);
+        user.setToken(jwtToken);
+
+        return user;
     }
 
     @Override
@@ -39,6 +76,9 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public User saveUser(User user) {
+
+        //TODO validations
+
         UserEntity userEntity = UserEntity.builder()
                 .username(user.getUsername())
                 .password(user.getPassword())
@@ -51,4 +91,5 @@ public class UserServiceImpl implements UserService {
     public void deleteUser(Long userId) {
         //TODO
     }
+
 }

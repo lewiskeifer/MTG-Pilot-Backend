@@ -253,6 +253,13 @@ public class DataMigrationServiceImpl implements DataMigrationService {
         JSONArray ja = (JSONArray) obj;
         ja.forEach(this::parseJson);
 
+        List<CardEntity> cardEntities = cardRepository.findAll();
+        for (CardEntity cardEntity : cardEntities) {
+            Map<String, String> results = tcgService.fetchProductConditionIdAndUrl(cardConverter.convert(cardEntity));
+            cardEntity.setProductConditionId(results.get("productConditionId"));
+            cardRepository.save(cardEntity);
+        }
+
     }
 
     private void parseJson(Object jsonObject) {
@@ -296,6 +303,7 @@ public class DataMigrationServiceImpl implements DataMigrationService {
                     .purchasePrice(purchasePrice)
                     .version((String)(jsonObject1).get("version"))
                     .url((String)(jsonObject1).get("url"))
+                    .productConditionId((String)(jsonObject1).get("productConditionId"))
                     .deckEntity(deckEntity)
                     .build();
 
