@@ -28,6 +28,10 @@ public class DeckEntity {
     @Column(nullable = false)
     private DeckFormat deckFormat;
 
+    @ManyToOne
+    @JoinColumn(name = "user_entity_id")
+    private UserEntity userEntity;
+
     @Builder.Default
     @OneToMany(mappedBy = "deckEntity", cascade = CascadeType.ALL)
     private List<CardEntity> cardEntities = new ArrayList<>();

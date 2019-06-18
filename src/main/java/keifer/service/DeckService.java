@@ -7,18 +7,18 @@ import java.util.List;
 
 public interface DeckService {
 
-    List<Deck> getDecks();
+    List<Deck> getDecks(Long userId);
 
-    Deck getDeck(Long deckId);
+    Deck getDeck(Long userId, Long deckId);
 
-    Card saveCard(Long deckId, Card card);
+    Card saveCard(Long userId, Long deckId, Card card);
 
-    void saveDeck(Deck deck);
+    void saveDeck(Long userId, Deck deck) throws Exception;
 
-    void refreshDeck(Long deckId);
+    void refreshDeck(Long userId, Long deckId);
 
-    void deleteCard(Long cardId);
+    void deleteCard(Long userId, Long cardId);
 
-    void deleteDeck(Long deckId);
+    void deleteDeck(Long userId, Long deckId);
 
 }
