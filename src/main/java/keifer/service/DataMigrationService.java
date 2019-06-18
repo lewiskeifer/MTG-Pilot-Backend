@@ -9,4 +9,8 @@ public interface DataMigrationService {
 
     void migrateTextData();
 
+    void migrateJsonData();
+
+    void migrateSqlData();
+
 }

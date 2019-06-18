@@ -17,4 +17,14 @@ public class DeckSnapshotConverter {
 
     }
 
+    public DeckSnapshotEntity convert(DeckSnapshot source) {
+
+        return DeckSnapshotEntity.builder()
+                .purchasePrice(source.getPurchasePrice())
+                .value(source.getValue())
+                .timestamp(source.getTimestamp())
+                .build();
+
+    }
+
 }
