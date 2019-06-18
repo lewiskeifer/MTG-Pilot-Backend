@@ -6,9 +6,11 @@ import keifer.converter.CardConverter;
 import keifer.converter.DeckConverter;
 import keifer.persistence.CardRepository;
 import keifer.persistence.DeckRepository;
+import keifer.persistence.UserRepository;
 import keifer.persistence.model.CardEntity;
 import keifer.persistence.model.DeckEntity;
 import keifer.persistence.model.DeckSnapshotEntity;
+import keifer.persistence.model.UserEntity;
 import keifer.service.model.CardCondition;
 import keifer.service.model.DeckFormat;
 import lombok.NonNull;
@@ -23,17 +25,20 @@ import java.util.stream.Collectors;
 @Service
 public class DeckServiceImpl implements DeckService {
 
-    private DeckRepository deckRepository;
-    private DeckConverter deckConverter;
-    private CardRepository cardRepository;
-    private CardConverter cardConverter;
-    private TcgService tcgService;
+    private final UserRepository userRepository;
+    private final DeckRepository deckRepository;
+    private final DeckConverter deckConverter;
+    private final CardRepository cardRepository;
+    private final CardConverter cardConverter;
+    private final TcgService tcgService;
 
-    public DeckServiceImpl(@NonNull DeckRepository deckRepository,
+    public DeckServiceImpl(@NonNull UserRepository userRepository,
+                            @NonNull DeckRepository deckRepository,
                            @NonNull DeckConverter deckConverter,
                            @NonNull CardRepository cardRepository,
                            @NonNull CardConverter cardConverter,
                            @NonNull TcgService tcgService) {
+        this.userRepository = userRepository;
         this.deckRepository = deckRepository;
         this.deckConverter = deckConverter;
         this.cardRepository = cardRepository;
@@ -42,21 +47,21 @@ public class DeckServiceImpl implements DeckService {
     }
 
     @Override
-    public List<Deck> getDecks() {
+    public List<Deck> getDecks(Long userId) {
 
         List<Deck> decks = new ArrayList<>();
-        decks.add(getDeckOverview());
-        decks.addAll(deckRepository.findAll().stream().map(deckConverter::convert).collect(Collectors.toList()));
+        decks.add(getDeckOverview(userId));
+        decks.addAll(deckRepository.findByUserEntityId(userId).stream().map(deckConverter::convert).collect(Collectors.toList()));
 
         return decks;
     }
 
     @Override
-    public Deck getDeck(Long deckId) {
+    public Deck getDeck(Long userId, Long deckId) {
 
         // Deck Overview
         if (deckId == 0) {
-            return getDeckOverview();
+            return getDeckOverview(userId);
         }
 
         DeckEntity deckEntity = fetchDeck(deckId);
@@ -64,37 +69,8 @@ public class DeckServiceImpl implements DeckService {
         return deckConverter.convert(deckEntity);
     }
 
-    private Deck getDeckOverview() {
-
-        Deck deck = Deck.builder().id(0L).name("Deck Overview").cards(new ArrayList<>()).build();
-
-        List<Deck> decks = deckRepository.findAll().stream().map(deckConverter::convert).collect(Collectors.toList());
-
-        long count = 0L;
-        for (Deck newDeck : decks) {
-            double deckValue = 0;
-            for (Card card : newDeck.getCards()) {
-                deckValue += (card.getMarketPrice() * card.getQuantity());
-            }
-
-            deck.getCards().add(Card.builder()
-                    .id(count++)
-                    .name(newDeck.getName())
-                    .version("")
-                    .purchasePrice(0.0)
-                    .quantity(1)
-                    .url("")
-                    .marketPrice(deckValue)
-                    .build());
-        }
-
-        return deck;
-    }
-
-    // TODO null checking on incoming object
-
     @Override
-    public Card saveCard(Long deckId, Card card) {
+    public Card saveCard(Long userId, Long deckId, Card card) {
 
         DeckEntity deckEntity = fetchDeck(deckId);
 
@@ -129,14 +105,20 @@ public class DeckServiceImpl implements DeckService {
     }
 
     @Override
-    public void saveDeck(Deck deck) {
+    public void saveDeck(Long userId, Deck deck) throws Exception {
 
         DeckEntity deckEntity = null;
 
         if (deck.getId() == null) {
+            UserEntity userEntity = userRepository.findOneById(userId);
+            if (userEntity == null) {
+                throw new Exception("User with id " + userId  + " does not exist");
+            }
+
             deckEntity = DeckEntity.builder()
                     .name(deck.getName())
                     .deckFormat(DeckFormat.fromString("Casual")) //TODO
+                    .userEntity(userEntity)
                     .build();
         }
         else {
@@ -148,11 +130,11 @@ public class DeckServiceImpl implements DeckService {
     }
 
     @Override
-    public void refreshDeck(Long deckId) {
+    public void refreshDeck(Long userId, Long deckId) {
 
         // Deck Overview
         if (deckId == 0) {
-            List<DeckEntity> deckEntities = deckRepository.findAll();
+            List<DeckEntity> deckEntities = deckRepository.findByUserEntityId(userId);
             for (DeckEntity deckEntity : deckEntities) {
 
                 double aggregatePurchasePrice = 0;
@@ -181,17 +163,44 @@ public class DeckServiceImpl implements DeckService {
     }
 
     @Override
-    public void deleteCard(Long cardId) {
+    public void deleteCard(Long userId, Long cardId) {
 
         cardRepository.deleteById(cardId);
     }
 
     @Override
-    public void deleteDeck(Long deckId) {
+    public void deleteDeck(Long userId, Long deckId) {
 
         DeckEntity deckEntity = fetchDeck(deckId);
 
         deckRepository.delete(deckEntity);
+    }
+
+    private Deck getDeckOverview(Long userId) {
+
+        Deck deck = Deck.builder().id(0L).name("Deck Overview").cards(new ArrayList<>()).build();
+
+        List<Deck> decks = deckRepository.findByUserEntityId(userId).stream().map(deckConverter::convert).collect(Collectors.toList());
+
+        long count = 0L;
+        for (Deck newDeck : decks) {
+            double deckValue = 0;
+            for (Card card : newDeck.getCards()) {
+                deckValue += (card.getMarketPrice() * card.getQuantity());
+            }
+
+            deck.getCards().add(Card.builder()
+                    .id(count++)
+                    .name(newDeck.getName())
+                    .version("")
+                    .purchasePrice(0.0)
+                    .quantity(1)
+                    .url("")
+                    .marketPrice(deckValue)
+                    .build());
+        }
+
+        return deck;
     }
 
     private DeckEntity fetchDeck(Long deckId) {

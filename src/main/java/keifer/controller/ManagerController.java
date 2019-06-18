@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @Api
-@RequestMapping("/manager")
+@RequestMapping("/manager/users")
 @RestController
 public class ManagerController {
 
@@ -54,40 +54,41 @@ public class ManagerController {
     }
 
 
-    @GetMapping("/decks")
-    public List<Deck> getDecks() {
-        return deckService.getDecks();
+    @GetMapping("/{userId}/decks")
+    public List<Deck> getDecks(@PathVariable("userId") Long userId) {
+        return deckService.getDecks(userId);
     }
 
-    @GetMapping("/decks/{deckId}")
-    public Deck getDeck(@PathVariable("deckId") Long deckId) {
-        return deckService.getDeck(deckId);
+    @GetMapping("/{userId}/decks/{deckId}")
+    public Deck getDeck(@PathVariable("userId") Long userId, @PathVariable("deckId") Long deckId) {
+        return deckService.getDeck(userId, deckId);
     }
 
-    @PutMapping("/decks/{deckId}/cards")
-    public Card saveCard(@PathVariable("deckId") Long deckId, @RequestBody Card card) {
-        return deckService.saveCard(deckId, card);
+    @PutMapping("/{userId}/decks/{deckId}/cards")
+    public Card saveCard(@PathVariable("userId") Long userId, @PathVariable("deckId") Long deckId, @RequestBody Card card) {
+        return deckService.saveCard(userId, deckId, card);
     }
 
-    @PutMapping("/decks")
-    public void saveDeck(@RequestBody Deck deck) {
-        deckService.saveDeck(deck);
+    @PutMapping("/{userId}/decks")
+    public void saveDeck(@PathVariable("userId") Long userId, @RequestBody Deck deck) throws Exception {
+        deckService.saveDeck(userId, deck);
     }
 
-    @PutMapping("/decks/{deckId}/refresh")
-    public void refreshDeck(@PathVariable("deckId") Long deckId) {
-        deckService.refreshDeck(deckId);
+    @PutMapping("/{userId}/decks/{deckId}/refresh")
+    public void refreshDeck(@PathVariable("userId") Long userId, @PathVariable("deckId") Long deckId) {
+        deckService.refreshDeck(userId, deckId);
     }
 
-    @DeleteMapping("/decks/{deckId}/cards/{cardId}")
-    public void deleteCard(@PathVariable("deckId") Long deckId, @PathVariable("cardId") Long cardId) {
-        deckService.deleteCard(cardId);
+    @DeleteMapping("/{userId}/decks/{deckId}/cards/{cardId}")
+    public void deleteCard(@PathVariable("userId") Long userId, @PathVariable("deckId") Long deckId, @PathVariable("cardId") Long cardId) {
+        deckService.deleteCard(userId, cardId);
     }
 
-    @DeleteMapping("/decks/{deckId}")
-    public void deleteDeck(@PathVariable("deckId") Long deckId) {
-        deckService.deleteDeck(deckId);
+    @DeleteMapping("/{userId}/decks/{deckId}")
+    public void deleteDeck(@PathVariable("userId") Long userId, @PathVariable("deckId") Long deckId) {
+        deckService.deleteDeck(userId, deckId);
     }
+
 
     @GetMapping("/migrateText")
     public void migrateText() {
