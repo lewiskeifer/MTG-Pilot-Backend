@@ -47,6 +47,12 @@ public class DeckServiceImpl implements DeckService {
     }
 
     @Override
+    public List<Deck> getDecks() {
+
+        return deckRepository.findAll().stream().map(deckConverter::convert).collect(Collectors.toList());
+    }
+
+    @Override
     public List<Deck> getDecks(Long userId) {
 
         List<Deck> decks = new ArrayList<>();

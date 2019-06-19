@@ -34,5 +34,4 @@ public class LoginController {
     public User login(@RequestBody Login login) throws ServletException {
         return userService.login(login);
     }
-
 }

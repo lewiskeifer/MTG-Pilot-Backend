@@ -49,10 +49,13 @@ public class ManagerController {
     }
 
     @DeleteMapping("/{userId}")
-    public void deleteUser(@PathVariable("userId") Long userId) {
-        userService.deleteUser(userId);
-    }
+    public void deleteUser(@PathVariable("userId") Long userId) { userService.deleteUser(userId); }
 
+
+    @GetMapping("/decks")
+    public List<Deck> getAllDecks() {
+        return deckService.getDecks();
+    }
 
     @GetMapping("/{userId}/decks")
     public List<Deck> getDecks(@PathVariable("userId") Long userId) {

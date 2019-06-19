@@ -14,5 +14,6 @@ public class YAMLConfig {
 
     private String publicKey;
     private String privateKey;
+    private String secretKey;
 
 }

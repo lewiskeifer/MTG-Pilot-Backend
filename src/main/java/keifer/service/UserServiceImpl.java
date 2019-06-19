@@ -7,7 +7,9 @@ import keifer.api.model.User;
 import keifer.converter.UserConverter;
 import keifer.persistence.UserRepository;
 import keifer.persistence.model.UserEntity;
+import keifer.service.model.YAMLConfig;
 import lombok.NonNull;
+import org.jasypt.util.text.BasicTextEncryptor;
 import org.springframework.stereotype.Service;
 
 import javax.servlet.ServletException;
@@ -20,14 +22,17 @@ public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final UserConverter userConverter;
-//    private final PasswordEncoder passwordEncoder;
+    private final BasicTextEncryptor passwordEncoder;
+    private YAMLConfig yamlConfig;
 
     public UserServiceImpl(@NonNull UserRepository userRepository,
-                           @NonNull UserConverter userConverter) {
-//                           @NonNull PasswordEncoder passwordEncoder) {
+                           @NonNull UserConverter userConverter,
+                           YAMLConfig yamlConfig) {
         this.userRepository = userRepository;
         this.userConverter = userConverter;
-//        this.passwordEncoder = passwordEncoder;
+        this.yamlConfig = yamlConfig;
+        this.passwordEncoder = new BasicTextEncryptor();
+        this.passwordEncoder.setPasswordCharArray(yamlConfig.getSecretKey().toCharArray());
     }
 
     @Override
@@ -48,15 +53,12 @@ public class UserServiceImpl implements UserService {
             throw new ServletException("Username not found.");
         }
 
-        // TODO encrypt
-        String pwd = userEntity.getPassword();
-
-        if (!password.equals(pwd)) {
+        if (!password.equals(passwordEncoder.decrypt(userEntity.getPassword()))) {
             throw new ServletException("Invalid login. Please check your name and password.");
         }
 
         jwtToken = Jwts.builder().setSubject(username).claim("id", userEntity.getId()).setIssuedAt(new Date())
-                .signWith(SignatureAlgorithm.HS256, "secretkey").compact();
+                .signWith(SignatureAlgorithm.HS256, yamlConfig.getSecretKey()).compact();
 
         User user  = userConverter.convert(userEntity);
         user.setToken(jwtToken);
@@ -81,7 +83,7 @@ public class UserServiceImpl implements UserService {
 
         UserEntity userEntity = UserEntity.builder()
                 .username(user.getUsername())
-                .password(user.getPassword())
+                .password(passwordEncoder.encrypt(user.getPassword()))
                 .email(user.getEmail())
                 .build();
         return userConverter.convert(userRepository.save(userEntity));

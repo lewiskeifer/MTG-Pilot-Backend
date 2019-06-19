@@ -239,6 +239,7 @@ public class DataMigrationServiceImpl implements DataMigrationService {
         }
     }
 
+    @Override
     public void migrateJsonData() {
 
         Object obj = null;
@@ -313,7 +314,9 @@ public class DataMigrationServiceImpl implements DataMigrationService {
         JSONArray jsonArray2 = (JSONArray)jo.get("deckSnapshots");
 
         Iterator it2 = jsonArray2.iterator();
+
         while (it2.hasNext()) {
+
             JSONObject jsonObject2 = (JSONObject)it2.next();
 
             Double purchasePrice = 0.0;
@@ -348,6 +351,7 @@ public class DataMigrationServiceImpl implements DataMigrationService {
         userRepository.save(userEntity);
     }
 
+    @Override
     public void migrateSqlData() {
         List<DeckEntity> deckEntities = deckRepository.findAll();
 
