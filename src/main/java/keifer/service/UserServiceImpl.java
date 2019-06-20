@@ -11,6 +11,7 @@ import keifer.service.model.YAMLConfig;
 import lombok.NonNull;
 import org.jasypt.util.text.BasicTextEncryptor;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import javax.servlet.ServletException;
 import java.util.Date;
@@ -38,10 +39,8 @@ public class UserServiceImpl implements UserService {
     @Override
     public User login(Login login) throws ServletException {
 
-        String jwtToken;
-
         if (login.getUsername() == null || login.getPassword() == null) {
-            throw new ServletException("Please fill in username and password.");
+            throw new ServletException("Invalid login.");
         }
 
         String username = login.getUsername();
@@ -54,14 +53,14 @@ public class UserServiceImpl implements UserService {
         }
 
         if (!password.equals(passwordEncoder.decrypt(userEntity.getPassword()))) {
-            throw new ServletException("Invalid login. Please check your name and password.");
+            throw new ServletException("Invalid login.");
         }
 
-        jwtToken = Jwts.builder().setSubject(username).claim("id", userEntity.getId()).setIssuedAt(new Date())
+        String token = Jwts.builder().setSubject(username).claim("id", userEntity.getId()).setIssuedAt(new Date())
                 .signWith(SignatureAlgorithm.HS256, yamlConfig.getSecretKey()).compact();
 
-        User user  = userConverter.convert(userEntity);
-        user.setToken(jwtToken);
+        User user = userConverter.convert(userEntity);
+        user.setToken(token);
 
         return user;
     }
@@ -77,14 +76,22 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public User saveUser(User user) {
+    public User saveUser(User user) throws ServletException {
 
-        //TODO validations
+        String username = user.getUsername();
+        String password = user.getPassword();
+        String email = user.getEmail();
+
+        if (StringUtils.isEmpty(username) ||
+                StringUtils.isEmpty(password) ||
+                StringUtils.isEmpty(email)) {
+            throw new ServletException("Invalid registration.");
+        }
 
         UserEntity userEntity = UserEntity.builder()
-                .username(user.getUsername())
-                .password(passwordEncoder.encrypt(user.getPassword()))
-                .email(user.getEmail())
+                .username(username)
+                .password(passwordEncoder.encrypt(password))
+                .email(email)
                 .build();
         return userConverter.convert(userRepository.save(userEntity));
     }

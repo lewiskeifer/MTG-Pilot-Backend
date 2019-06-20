@@ -11,6 +11,7 @@ import keifer.service.UserService;
 import lombok.NonNull;
 import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.ServletException;
 import java.util.List;
 
 @Api
@@ -44,12 +45,14 @@ public class ManagerController {
     }
 
     @PutMapping()
-    public User saveUser(@RequestBody User user) {
+    public User saveUser(@RequestBody User user) throws ServletException {
         return userService.saveUser(user);
     }
 
     @DeleteMapping("/{userId}")
-    public void deleteUser(@PathVariable("userId") Long userId) { userService.deleteUser(userId); }
+    public void deleteUser(@PathVariable("userId") Long userId) {
+        userService.deleteUser(userId);
+    }
 
 
     @GetMapping("/decks")
@@ -63,32 +66,40 @@ public class ManagerController {
     }
 
     @GetMapping("/{userId}/decks/{deckId}")
-    public Deck getDeck(@PathVariable("userId") Long userId, @PathVariable("deckId") Long deckId) {
+    public Deck getDeck(@PathVariable("userId") Long userId,
+                        @PathVariable("deckId") Long deckId) {
         return deckService.getDeck(userId, deckId);
     }
 
     @PutMapping("/{userId}/decks/{deckId}/cards")
-    public Card saveCard(@PathVariable("userId") Long userId, @PathVariable("deckId") Long deckId, @RequestBody Card card) {
+    public Card saveCard(@PathVariable("userId") Long userId,
+                         @PathVariable("deckId") Long deckId,
+                         @RequestBody Card card) {
         return deckService.saveCard(userId, deckId, card);
     }
 
     @PutMapping("/{userId}/decks")
-    public void saveDeck(@PathVariable("userId") Long userId, @RequestBody Deck deck) throws Exception {
+    public void saveDeck(@PathVariable("userId") Long userId,
+                         @RequestBody Deck deck) throws ServletException {
         deckService.saveDeck(userId, deck);
     }
 
     @PutMapping("/{userId}/decks/{deckId}/refresh")
-    public void refreshDeck(@PathVariable("userId") Long userId, @PathVariable("deckId") Long deckId) {
+    public void refreshDeck(@PathVariable("userId") Long userId,
+                            @PathVariable("deckId") Long deckId) {
         deckService.refreshDeck(userId, deckId);
     }
 
     @DeleteMapping("/{userId}/decks/{deckId}/cards/{cardId}")
-    public void deleteCard(@PathVariable("userId") Long userId, @PathVariable("deckId") Long deckId, @PathVariable("cardId") Long cardId) {
+    public void deleteCard(@PathVariable("userId") Long userId,
+                           @PathVariable("deckId") Long deckId,
+                           @PathVariable("cardId") Long cardId) {
         deckService.deleteCard(userId, cardId);
     }
 
     @DeleteMapping("/{userId}/decks/{deckId}")
-    public void deleteDeck(@PathVariable("userId") Long userId, @PathVariable("deckId") Long deckId) {
+    public void deleteDeck(@PathVariable("userId") Long userId,
+                           @PathVariable("deckId") Long deckId) {
         deckService.deleteDeck(userId, deckId);
     }
 

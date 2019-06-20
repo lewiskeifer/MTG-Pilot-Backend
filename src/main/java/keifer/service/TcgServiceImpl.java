@@ -32,7 +32,8 @@ public class TcgServiceImpl implements TcgService {
     private String getToken() {
 
         RestTemplate restTemplate = new RestTemplate();
-        String body = "grant_type=client_credentials&client_id=" + yamlConfig.getPublicKey() + "&client_secret=" + yamlConfig.getPrivateKey();
+        String body = "grant_type=client_credentials&client_id=" + yamlConfig.getPublicKey()
+                + "&client_secret=" + yamlConfig.getPrivateKey();
         String url = "https://api.tcgplayer.com/token";
         HttpEntity<String> requestEntity = new HttpEntity<>(body);
 
@@ -48,10 +49,13 @@ public class TcgServiceImpl implements TcgService {
         headers.setBearerAuth(token);
         HttpEntity<String> requestEntity = new HttpEntity<>("parameters", headers);
 
-        String url = "http://api.tcgplayer.com/v1.14.0/catalog/products?categoryId=1&productTypes=Cards&Limit=50&productName=" + card.getName();
+        String url
+                = "http://api.tcgplayer.com/v1.14.0/catalog/products?categoryId=1&productTypes=Cards&Limit=50&productName="
+                + card.getName();
 
         try {
-            ResponseEntity<ProductConditionIdResponse> responseEntity = restTemplate.exchange(url, HttpMethod.GET, requestEntity, ProductConditionIdResponse.class);
+            ResponseEntity<ProductConditionIdResponse> responseEntity =
+                    restTemplate.exchange(url, HttpMethod.GET, requestEntity, ProductConditionIdResponse.class);
 
             String version = card.getVersion();
             for (Result result : responseEntity.getBody().getResults()) {
@@ -88,7 +92,8 @@ public class TcgServiceImpl implements TcgService {
 
         String url = "http://api.tcgplayer.com/pricing/marketprices/" + productConditionId;
 
-        ResponseEntity<MarketPriceResponse> responseEntity = restTemplate.exchange(url, HttpMethod.GET, requestEntity, MarketPriceResponse.class);
+        ResponseEntity<MarketPriceResponse> responseEntity =
+                restTemplate.exchange(url, HttpMethod.GET, requestEntity, MarketPriceResponse.class);
 
         List<MarketPriceResult> results = responseEntity.getBody().getResults();
 

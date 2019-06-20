@@ -1,7 +1,8 @@
 package keifer.configuration;
 
-import io.jsonwebtoken.*;
-import io.jsonwebtoken.impl.TextCodec;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureException;
 import keifer.service.model.YAMLConfig;
 import org.springframework.web.filter.GenericFilterBean;
 

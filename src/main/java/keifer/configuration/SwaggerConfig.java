@@ -7,8 +7,6 @@ import springfox.documentation.builders.ParameterBuilder;
 import springfox.documentation.schema.ModelRef;
 import springfox.documentation.service.Parameter;
 import springfox.documentation.spring.web.plugins.Docket;
-import springfox.documentation.swagger.web.SecurityConfiguration;
-import springfox.documentation.swagger.web.SecurityConfigurationBuilder;
 
 import java.util.Arrays;
 

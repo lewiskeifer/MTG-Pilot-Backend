@@ -16,6 +16,7 @@ import keifer.service.model.DeckFormat;
 import lombok.NonNull;
 import org.springframework.stereotype.Service;
 
+import javax.servlet.ServletException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -33,7 +34,7 @@ public class DeckServiceImpl implements DeckService {
     private final TcgService tcgService;
 
     public DeckServiceImpl(@NonNull UserRepository userRepository,
-                            @NonNull DeckRepository deckRepository,
+                           @NonNull DeckRepository deckRepository,
                            @NonNull DeckConverter deckConverter,
                            @NonNull CardRepository cardRepository,
                            @NonNull CardConverter cardConverter,
@@ -57,7 +58,8 @@ public class DeckServiceImpl implements DeckService {
 
         List<Deck> decks = new ArrayList<>();
         decks.add(getDeckOverview(userId));
-        decks.addAll(deckRepository.findByUserEntityId(userId).stream().map(deckConverter::convert).collect(Collectors.toList()));
+        decks.addAll(deckRepository.findByUserEntityId(userId).stream()
+                .map(deckConverter::convert).collect(Collectors.toList()));
 
         return decks;
     }
@@ -111,14 +113,14 @@ public class DeckServiceImpl implements DeckService {
     }
 
     @Override
-    public void saveDeck(Long userId, Deck deck) throws Exception {
+    public void saveDeck(Long userId, Deck deck) throws ServletException {
 
         DeckEntity deckEntity = null;
 
         if (deck.getId() == null) {
             UserEntity userEntity = userRepository.findOneById(userId);
             if (userEntity == null) {
-                throw new Exception("User with id " + userId  + " does not exist");
+                throw new ServletException("User with id " + userId + " does not exist");
             }
 
             deckEntity = DeckEntity.builder()
@@ -126,8 +128,7 @@ public class DeckServiceImpl implements DeckService {
                     .deckFormat(DeckFormat.fromString("Casual")) //TODO
                     .userEntity(userEntity)
                     .build();
-        }
-        else {
+        } else {
             deckEntity = fetchDeck(deck.getId());
             deckEntity.setName(deck.getName());
         }
@@ -186,7 +187,8 @@ public class DeckServiceImpl implements DeckService {
 
         Deck deck = Deck.builder().id(0L).name("Deck Overview").cards(new ArrayList<>()).build();
 
-        List<Deck> decks = deckRepository.findByUserEntityId(userId).stream().map(deckConverter::convert).collect(Collectors.toList());
+        List<Deck> decks = deckRepository.findByUserEntityId(userId).stream().map(deckConverter::convert)
+                .collect(Collectors.toList());
 
         long count = 0L;
         for (Deck newDeck : decks) {
@@ -231,7 +233,7 @@ public class DeckServiceImpl implements DeckService {
 
         LocalDateTime localDateTime = LocalDateTime.now();
 
-        List <DeckSnapshotEntity> deckSnapshotEntities = deckEntity.getDeckSnapshotEntities();
+        List<DeckSnapshotEntity> deckSnapshotEntities = deckEntity.getDeckSnapshotEntities();
 
         // TODO will overwrite when last day someone updated a deck happens to be exactly a year ago
         if (!deckSnapshotEntities.isEmpty() && localDateTime.getDayOfYear() ==
@@ -241,8 +243,7 @@ public class DeckServiceImpl implements DeckService {
 
             deckEntity.getDeckSnapshotEntities().get(deckSnapshotEntities.size() - 1).setPurchasePrice(aggregatePurchasePrice);
             deckEntity.getDeckSnapshotEntities().get(deckSnapshotEntities.size() - 1).setValue(aggregateValue);
-        }
-        else {
+        } else {
             deckEntity.getDeckSnapshotEntities().add(DeckSnapshotEntity.builder()
                     .purchasePrice(aggregatePurchasePrice)
                     .value(aggregateValue)
