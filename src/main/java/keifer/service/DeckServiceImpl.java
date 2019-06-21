@@ -117,7 +117,7 @@ public class DeckServiceImpl implements DeckService {
 
         DeckEntity deckEntity = null;
 
-        if (deck.getId() == null) {
+        if (deck.getId() == null || deck.getId() < 1) {
             UserEntity userEntity = userRepository.findOneById(userId);
             if (userEntity == null) {
                 throw new ServletException("User with id " + userId + " does not exist.");
@@ -131,6 +131,7 @@ public class DeckServiceImpl implements DeckService {
         } else {
             deckEntity = fetchDeck(deck.getId());
             deckEntity.setName(deck.getName());
+            deckEntity.setDeckFormat(DeckFormat.fromString(deck.getFormat()));
         }
 
         deckRepository.save(deckEntity);
