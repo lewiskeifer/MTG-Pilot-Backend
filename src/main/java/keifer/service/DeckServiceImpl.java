@@ -120,12 +120,12 @@ public class DeckServiceImpl implements DeckService {
         if (deck.getId() == null) {
             UserEntity userEntity = userRepository.findOneById(userId);
             if (userEntity == null) {
-                throw new ServletException("User with id " + userId + " does not exist");
+                throw new ServletException("User with id " + userId + " does not exist.");
             }
 
             deckEntity = DeckEntity.builder()
                     .name(deck.getName())
-                    .deckFormat(DeckFormat.fromString("Casual")) //TODO
+                    .deckFormat(DeckFormat.fromString(deck.getFormat()))
                     .userEntity(userEntity)
                     .build();
         } else {

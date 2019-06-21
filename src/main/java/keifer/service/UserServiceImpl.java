@@ -56,8 +56,12 @@ public class UserServiceImpl implements UserService {
             throw new ServletException("Invalid login.");
         }
 
-        String token = Jwts.builder().setSubject(username).claim("id", userEntity.getId()).setIssuedAt(new Date())
-                .signWith(SignatureAlgorithm.HS256, yamlConfig.getSecretKey()).compact();
+        String token = Jwts.builder()
+                .setSubject(username)
+                .claim("id", userEntity.getId())
+                .setIssuedAt(new Date())
+                .signWith(SignatureAlgorithm.HS256, yamlConfig.getSecretKey())
+                .compact();
 
         User user = userConverter.convert(userEntity);
         user.setToken(token);
@@ -88,6 +92,14 @@ public class UserServiceImpl implements UserService {
             throw new ServletException("Invalid registration.");
         }
 
+        if (userRepository.findOneByUsername(username) != null) {
+            throw new ServletException("Username: " + username + " already exists.");
+        }
+
+        if (userRepository.findOneByEmail(email) != null) {
+            throw new ServletException("Email: " + email + " is already in use.");
+        }
+
         UserEntity userEntity = UserEntity.builder()
                 .username(username)
                 .password(passwordEncoder.encrypt(password))
@@ -98,7 +110,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public void deleteUser(Long userId) {
-        //TODO
+        userRepository.deleteById(userId);
     }
 
 }
