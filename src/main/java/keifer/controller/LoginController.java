@@ -1,17 +1,16 @@
 package keifer.controller;
 
-import io.jsonwebtoken.Jwts;
 import io.swagger.annotations.Api;
-import keifer.api.model.Card;
-import keifer.api.model.Deck;
 import keifer.api.model.Login;
 import keifer.api.model.User;
 import keifer.service.UserService;
 import lombok.NonNull;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import javax.servlet.ServletException;
-import java.util.List;
 
 
 @Api
@@ -34,5 +33,4 @@ public class LoginController {
     public User login(@RequestBody Login login) throws ServletException {
         return userService.login(login);
     }
-
 }

@@ -1,7 +1,9 @@
 package keifer.configuration;
 
-import io.jsonwebtoken.*;
-import io.jsonwebtoken.impl.TextCodec;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureException;
+import keifer.service.model.YAMLConfig;
 import org.springframework.web.filter.GenericFilterBean;
 
 import javax.servlet.FilterChain;
@@ -14,12 +16,11 @@ import java.io.IOException;
 
 public class JwtFilter extends GenericFilterBean {
 
-//    private SigningKeyResolver signingKeyResolver = new SigningKeyResolverAdapter() {
-//        @Override
-//        public byte[] resolveSigningKeyBytes(JwsHeader header, Claims claims) {
-//            return TextCodec.BASE64.decode(secrets.get(header.getAlgorithm()));
-//        }
-//    };
+    private YAMLConfig yamlConfig;
+
+    public JwtFilter(YAMLConfig yamlConfig) {
+        this.yamlConfig = yamlConfig;
+    }
 
     public void doFilter(final ServletRequest req, final ServletResponse res, final FilterChain chain)
             throws IOException, ServletException {
@@ -41,7 +42,7 @@ public class JwtFilter extends GenericFilterBean {
             final String token = authHeader.substring(7);
 
             try {
-                final Claims claims = Jwts.parser().setSigningKey("secretkey").parseClaimsJws(token).getBody();
+                final Claims claims = Jwts.parser().setSigningKey(yamlConfig.getSecretKey()).parseClaimsJws(token).getBody();
                 request.setAttribute("claims", claims);
             } catch (final SignatureException e) {
                 throw new ServletException("Invalid token.");
