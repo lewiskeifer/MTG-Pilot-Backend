@@ -1,7 +1,5 @@
 package keifer.service;
 
-import keifer.api.model.Card;
-import keifer.api.model.DeckSnapshot;
 import keifer.converter.CardConverter;
 import keifer.converter.DeckSnapshotConverter;
 import keifer.persistence.CardRepository;
@@ -32,7 +30,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Service
@@ -239,6 +236,7 @@ public class DataMigrationServiceImpl implements DataMigrationService {
         }
     }
 
+    @Override
     public void migrateJsonData() {
 
         Object obj = null;
@@ -265,75 +263,77 @@ public class DataMigrationServiceImpl implements DataMigrationService {
     private void parseJson(Object jsonObject) {
 
         JSONObject jo = (JSONObject) jsonObject;
-        if ((long)jo.get("id") == 0L) {
+        if ((long) jo.get("id") == 0L) {
             return;
         }
 
         DeckEntity deckEntity = DeckEntity.builder()
-                .name((String)jo.get("name"))
-                .deckFormat(DeckFormat.fromString((String)jo.get("format")))
+                .name((String) jo.get("name"))
+                .deckFormat(DeckFormat.fromString((String) jo.get("format")))
                 .build();
 
-        JSONArray jsonArray = (JSONArray)jo.get("cards");
+        JSONArray jsonArray = (JSONArray) jo.get("cards");
 
         Iterator it = jsonArray.iterator();
         while (it.hasNext()) {
-            JSONObject jsonObject1 = (JSONObject)it.next();
+            JSONObject jsonObject1 = (JSONObject) it.next();
 
             Double marketPrice = 0.0;
             try {
-                marketPrice = ((Long)(jsonObject1).get("marketPrice")).doubleValue();
+                marketPrice = ((Long) (jsonObject1).get("marketPrice")).doubleValue();
             } catch (ClassCastException e) {
-                marketPrice = (Double)(jsonObject1).get("marketPrice");
+                marketPrice = (Double) (jsonObject1).get("marketPrice");
             }
 
             Double purchasePrice = 0.0;
             try {
-                purchasePrice = ((Long)(jsonObject1).get("purchasePrice")).doubleValue();
+                purchasePrice = ((Long) (jsonObject1).get("purchasePrice")).doubleValue();
             } catch (ClassCastException e) {
-                purchasePrice = (Double)(jsonObject1).get("purchasePrice");
+                purchasePrice = (Double) (jsonObject1).get("purchasePrice");
             }
 
             CardEntity cardEntity = CardEntity.builder()
                     .marketPrice(marketPrice)
-                    .quantity(((Long)(jsonObject1).get("quantity")).intValue())
+                    .quantity(((Long) (jsonObject1).get("quantity")).intValue())
                     .isFoil((Boolean) (jsonObject1).get("isFoil"))
-                    .cardCondition(CardCondition.fromString((String)(jsonObject1).get("cardCondition")))
-                    .name((String)(jsonObject1).get("name"))
+                    .cardCondition(CardCondition.fromString((String) (jsonObject1).get("cardCondition")))
+                    .name((String) (jsonObject1).get("name"))
                     .purchasePrice(purchasePrice)
-                    .version((String)(jsonObject1).get("version"))
-                    .url((String)(jsonObject1).get("url"))
-                    .productConditionId((String)(jsonObject1).get("productConditionId"))
+                    .version((String) (jsonObject1).get("version"))
+                    .url((String) (jsonObject1).get("url"))
+                    .productConditionId((String) (jsonObject1).get("productConditionId"))
                     .deckEntity(deckEntity)
                     .build();
 
             deckEntity.getCardEntities().add(cardEntity);
         }
 
-        JSONArray jsonArray2 = (JSONArray)jo.get("deckSnapshots");
+        JSONArray jsonArray2 = (JSONArray) jo.get("deckSnapshots");
 
         Iterator it2 = jsonArray2.iterator();
+
         while (it2.hasNext()) {
-            JSONObject jsonObject2 = (JSONObject)it2.next();
+
+            JSONObject jsonObject2 = (JSONObject) it2.next();
 
             Double purchasePrice = 0.0;
             try {
-                purchasePrice = ((Long)(jsonObject2).get("purchasePrice")).doubleValue();
+                purchasePrice = ((Long) (jsonObject2).get("purchasePrice")).doubleValue();
             } catch (ClassCastException e) {
-                purchasePrice = (Double)(jsonObject2).get("purchasePrice");
+                purchasePrice = (Double) (jsonObject2).get("purchasePrice");
             }
 
             Double value = 0.0;
             try {
-                value = ((Long)(jsonObject2).get("value")).doubleValue();
+                value = ((Long) (jsonObject2).get("value")).doubleValue();
             } catch (ClassCastException e) {
-                value = (Double)(jsonObject2).get("value");
+                value = (Double) (jsonObject2).get("value");
             }
 
             DeckSnapshotEntity deckSnapshotEntity = DeckSnapshotEntity.builder()
                     .purchasePrice(purchasePrice)
                     .value(value)
-                    .timestamp(LocalDateTime.parse((String)(jsonObject2).get("timestamp"), DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+                    .timestamp(LocalDateTime.parse((String) (jsonObject2).get("timestamp"), DateTimeFormatter.ISO_LOCAL_DATE_TIME))
                     .deckEntity(deckEntity)
                     .build();
 
@@ -348,6 +348,7 @@ public class DataMigrationServiceImpl implements DataMigrationService {
         userRepository.save(userEntity);
     }
 
+    @Override
     public void migrateSqlData() {
         List<DeckEntity> deckEntities = deckRepository.findAll();
 
