@@ -290,6 +290,7 @@ public class DeckServiceImpl implements DeckService {
 
     // Fires at 12 PM every day
     @Scheduled(cron = "0 0 12 * * ?")
+    @Override
     public void refreshAllDecks() {
 
         System.out.println("Scheduled task running.");

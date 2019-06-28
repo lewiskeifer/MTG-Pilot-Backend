@@ -24,4 +24,6 @@ public interface DeckService {
 
     void deleteDeck(Long userId, Long deckId);
 
+    void refreshAllDecks();
+
 }
