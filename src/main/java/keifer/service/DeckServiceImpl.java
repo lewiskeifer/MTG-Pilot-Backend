@@ -14,6 +14,8 @@ import keifer.persistence.model.UserEntity;
 import keifer.service.model.CardCondition;
 import keifer.service.model.DeckFormat;
 import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import javax.servlet.ServletException;
@@ -23,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class DeckServiceImpl implements DeckService {
 
@@ -32,19 +35,22 @@ public class DeckServiceImpl implements DeckService {
     private final CardRepository cardRepository;
     private final CardConverter cardConverter;
     private final TcgService tcgService;
+    private final SessionContextService sessionContextService;
 
     public DeckServiceImpl(@NonNull UserRepository userRepository,
                            @NonNull DeckRepository deckRepository,
                            @NonNull DeckConverter deckConverter,
                            @NonNull CardRepository cardRepository,
                            @NonNull CardConverter cardConverter,
-                           @NonNull TcgService tcgService) {
+                           @NonNull TcgService tcgService,
+                           @NonNull SessionContextService sessionContextService) {
         this.userRepository = userRepository;
         this.deckRepository = deckRepository;
         this.deckConverter = deckConverter;
         this.cardRepository = cardRepository;
         this.cardConverter = cardConverter;
         this.tcgService = tcgService;
+        this.sessionContextService = sessionContextService;
     }
 
     @Override
@@ -55,6 +61,8 @@ public class DeckServiceImpl implements DeckService {
 
     @Override
     public List<Deck> getDecks(Long userId) {
+
+//        String test = sessionContextService.getSession().getServletContext().g
 
         List<Deck> decks = new ArrayList<>();
         decks.add(getDeckOverview(userId));
@@ -254,5 +262,25 @@ public class DeckServiceImpl implements DeckService {
         }
 
         deckRepository.save(deckEntity);
+    }
+
+    // Fires at 12 PM every day
+    @Scheduled(cron = "0 0 12 * * ?")
+    private void refreshAllDecks() {
+
+        System.out.println("Scheduled task running.");
+
+        List<DeckEntity> deckEntities = deckRepository.findAll();
+        for (DeckEntity deckEntity : deckEntities) {
+
+            double aggregatePurchasePrice = 0;
+            double aggregateValue = 0;
+            for (CardEntity cardEntity : deckEntity.getCardEntities()) {
+                aggregatePurchasePrice += cardEntity.getPurchasePrice();
+                aggregateValue += (saveCardEntity(cardEntity) * cardEntity.getQuantity());
+            }
+
+            saveDeckEntitySnapshot(deckEntity, aggregatePurchasePrice, aggregateValue);
+        }
     }
 }
