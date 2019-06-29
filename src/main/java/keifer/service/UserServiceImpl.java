@@ -9,11 +9,15 @@ import keifer.persistence.UserRepository;
 import keifer.persistence.model.UserEntity;
 import keifer.service.model.YAMLConfig;
 import lombok.NonNull;
-import org.jasypt.util.text.BasicTextEncryptor;
+import lombok.SneakyThrows;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import javax.servlet.ServletException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -23,7 +27,6 @@ public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final UserConverter userConverter;
-    private final BasicTextEncryptor passwordEncoder;
     private YAMLConfig yamlConfig;
 
     public UserServiceImpl(@NonNull UserRepository userRepository,
@@ -32,10 +35,9 @@ public class UserServiceImpl implements UserService {
         this.userRepository = userRepository;
         this.userConverter = userConverter;
         this.yamlConfig = yamlConfig;
-        this.passwordEncoder = new BasicTextEncryptor();
-        this.passwordEncoder.setPasswordCharArray(yamlConfig.getSecretKey().toCharArray());
     }
 
+    @SneakyThrows
     @Override
     public User login(Login login) throws ServletException {
 
@@ -52,7 +54,10 @@ public class UserServiceImpl implements UserService {
             throw new ServletException("Username not found.");
         }
 
-        if (!password.equals(passwordEncoder.decrypt(userEntity.getPassword()))) {
+        MessageDigest md = MessageDigest.getInstance("SHA-512");
+        md.update(userEntity.getSalt());
+
+        if (!Arrays.equals(md.digest(password.getBytes(StandardCharsets.UTF_8)), userEntity.getPassword())) {
             throw new ServletException("Invalid login.");
         }
 
@@ -79,6 +84,7 @@ public class UserServiceImpl implements UserService {
         return userConverter.convert(userRepository.findOneById(userId));
     }
 
+    @SneakyThrows
     @Override
     public User saveUser(User user) throws ServletException {
 
@@ -100,9 +106,16 @@ public class UserServiceImpl implements UserService {
             throw new ServletException("Email: " + email + " is already in use.");
         }
 
+        SecureRandom random = new SecureRandom();
+        byte[] salt = new byte[16];
+        random.nextBytes(salt);
+        MessageDigest md = MessageDigest.getInstance("SHA-512");
+        md.update(salt);
+
         UserEntity userEntity = UserEntity.builder()
                 .username(username)
-                .password(passwordEncoder.encrypt(password))
+                .password(md.digest(password.getBytes(StandardCharsets.UTF_8)))
+                .salt(salt)
                 .email(email)
                 .build();
         return userConverter.convert(userRepository.save(userEntity));

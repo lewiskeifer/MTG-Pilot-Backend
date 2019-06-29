@@ -21,7 +21,6 @@ public class UserConverter {
         return User.builder()
                 .id(source.getId())
                 .username(source.getUsername())
-                .password(source.getPassword())
                 .email(source.getEmail())
                 .decks(source.getDeckEntities().stream().map(deckConverter::convert).collect(Collectors.toList()))
                 .build();

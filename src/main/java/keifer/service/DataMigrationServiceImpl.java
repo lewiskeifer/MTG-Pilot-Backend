@@ -17,6 +17,7 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 import org.springframework.stereotype.Service;
+import org.springframework.util.ResourceUtils;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -241,7 +242,7 @@ public class DataMigrationServiceImpl implements DataMigrationService {
 
         Object obj = null;
         try {
-            obj = new JSONParser().parse(new FileReader(jsonPath));
+            obj = new JSONParser().parse(new FileReader(ResourceUtils.getFile("classpath:JSON.json")));
         } catch (IOException e) {
             e.printStackTrace();
         } catch (ParseException e) {

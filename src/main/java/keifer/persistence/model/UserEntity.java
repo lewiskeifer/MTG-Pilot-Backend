@@ -24,8 +24,13 @@ public class UserEntity {
     @Column(nullable = false, unique = true)
     private String username;
 
-    @Column(nullable = false)
-    private String password;
+    @Lob
+    @Column(columnDefinition = "BINARY(64)", nullable = false)
+    private byte[] password;
+
+    @Lob
+    @Column(columnDefinition = "BINARY(16)", nullable = false)
+    private byte[] salt;
 
     @Column(nullable = false, unique = true)
     private String email;

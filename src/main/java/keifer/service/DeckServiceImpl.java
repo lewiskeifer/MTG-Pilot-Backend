@@ -14,8 +14,12 @@ import keifer.persistence.model.UserEntity;
 import keifer.service.model.CardCondition;
 import keifer.service.model.DeckFormat;
 import lombok.NonNull;
+import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import javax.security.sasl.AuthenticationException;
 import javax.servlet.ServletException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -23,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class DeckServiceImpl implements DeckService {
 
@@ -32,19 +37,22 @@ public class DeckServiceImpl implements DeckService {
     private final CardRepository cardRepository;
     private final CardConverter cardConverter;
     private final TcgService tcgService;
+    private final TokenParsingServiceImpl tokenParsingServiceImpl;
 
     public DeckServiceImpl(@NonNull UserRepository userRepository,
                            @NonNull DeckRepository deckRepository,
                            @NonNull DeckConverter deckConverter,
                            @NonNull CardRepository cardRepository,
                            @NonNull CardConverter cardConverter,
-                           @NonNull TcgService tcgService) {
+                           @NonNull TcgService tcgService,
+                           @NonNull TokenParsingServiceImpl tokenParsingServiceImpl) {
         this.userRepository = userRepository;
         this.deckRepository = deckRepository;
         this.deckConverter = deckConverter;
         this.cardRepository = cardRepository;
         this.cardConverter = cardConverter;
         this.tcgService = tcgService;
+        this.tokenParsingServiceImpl = tokenParsingServiceImpl;
     }
 
     @Override
@@ -56,6 +64,8 @@ public class DeckServiceImpl implements DeckService {
     @Override
     public List<Deck> getDecks(Long userId) {
 
+        checkPermissions(userId);
+
         List<Deck> decks = new ArrayList<>();
         decks.add(getDeckOverview(userId));
         decks.addAll(deckRepository.findByUserEntityId(userId).stream()
@@ -66,6 +76,8 @@ public class DeckServiceImpl implements DeckService {
 
     @Override
     public Deck getDeck(Long userId, Long deckId) {
+
+        checkPermissions(userId);
 
         // Deck Overview
         if (deckId == 0) {
@@ -79,6 +91,8 @@ public class DeckServiceImpl implements DeckService {
 
     @Override
     public Card saveCard(Long userId, Long deckId, Card card) {
+
+        checkPermissions(userId);
 
         DeckEntity deckEntity = fetchDeck(deckId);
 
@@ -115,6 +129,8 @@ public class DeckServiceImpl implements DeckService {
     @Override
     public void saveDeck(Long userId, Deck deck) throws ServletException {
 
+        checkPermissions(userId);
+
         DeckEntity deckEntity = null;
 
         if (deck.getId() == null || deck.getId() < 1) {
@@ -139,6 +155,8 @@ public class DeckServiceImpl implements DeckService {
 
     @Override
     public void refreshDeck(Long userId, Long deckId) {
+
+        checkPermissions(userId);
 
         // Deck Overview
         if (deckId == 0) {
@@ -173,11 +191,15 @@ public class DeckServiceImpl implements DeckService {
     @Override
     public void deleteCard(Long userId, Long cardId) {
 
+        checkPermissions(userId);
+
         cardRepository.deleteById(cardId);
     }
 
     @Override
     public void deleteDeck(Long userId, Long deckId) {
+
+        checkPermissions(userId);
 
         DeckEntity deckEntity = fetchDeck(deckId);
 
@@ -185,6 +207,8 @@ public class DeckServiceImpl implements DeckService {
     }
 
     private Deck getDeckOverview(Long userId) {
+
+        checkPermissions(userId);
 
         Deck deck = Deck.builder().id(0L).name("Deck Overview").cards(new ArrayList<>()).build();
 
@@ -254,5 +278,34 @@ public class DeckServiceImpl implements DeckService {
         }
 
         deckRepository.save(deckEntity);
+    }
+
+    @SneakyThrows
+    private void checkPermissions(Long id) {
+
+        if (!id.equals(tokenParsingServiceImpl.getUserId())) {
+            throw new AuthenticationException("User is not authorized.");
+        }
+    }
+
+    // Fires at 12 PM every day
+    @Scheduled(cron = "0 0 12 * * ?")
+    @Override
+    public void refreshAllDecks() {
+
+        System.out.println("Scheduled task running.");
+
+        List<DeckEntity> deckEntities = deckRepository.findAll();
+        for (DeckEntity deckEntity : deckEntities) {
+
+            double aggregatePurchasePrice = 0;
+            double aggregateValue = 0;
+            for (CardEntity cardEntity : deckEntity.getCardEntities()) {
+                aggregatePurchasePrice += cardEntity.getPurchasePrice();
+                aggregateValue += (saveCardEntity(cardEntity) * cardEntity.getQuantity());
+            }
+
+            saveDeckEntitySnapshot(deckEntity, aggregatePurchasePrice, aggregateValue);
+        }
     }
 }
