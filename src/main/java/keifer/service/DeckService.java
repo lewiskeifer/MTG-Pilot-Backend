@@ -14,6 +14,10 @@ public interface DeckService {
 
     Deck getDeck(Long userId, Long deckId);
 
+    List<String> getVersions();String
+
+    getVersion(Integer groupId);
+
     Card saveCard(Long userId, Long deckId, Card card);
 
     void saveDeck(Long userId, Deck deck) throws ServletException;

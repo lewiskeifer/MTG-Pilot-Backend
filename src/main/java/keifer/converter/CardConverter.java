@@ -12,6 +12,7 @@ public class CardConverter {
 
         return Card.builder()
                 .id(source.getId())
+                .groupId(source.getGroupId())
                 .name(source.getName())
                 .version(source.getVersion())
                 .isFoil(source.getIsFoil())

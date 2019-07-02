@@ -7,24 +7,21 @@ import keifer.converter.DeckConverter;
 import keifer.persistence.CardRepository;
 import keifer.persistence.DeckRepository;
 import keifer.persistence.UserRepository;
-import keifer.persistence.model.CardEntity;
-import keifer.persistence.model.DeckEntity;
-import keifer.persistence.model.DeckSnapshotEntity;
-import keifer.persistence.model.UserEntity;
+import keifer.persistence.VersionRepository;
+import keifer.persistence.model.*;
 import keifer.service.model.CardCondition;
 import keifer.service.model.DeckFormat;
 import lombok.NonNull;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import net.bytebuddy.TypeCache;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import javax.security.sasl.AuthenticationException;
 import javax.servlet.ServletException;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -33,6 +30,7 @@ public class DeckServiceImpl implements DeckService {
 
     private final UserRepository userRepository;
     private final DeckRepository deckRepository;
+    private final VersionRepository versionRepository;
     private final DeckConverter deckConverter;
     private final CardRepository cardRepository;
     private final CardConverter cardConverter;
@@ -41,6 +39,7 @@ public class DeckServiceImpl implements DeckService {
 
     public DeckServiceImpl(@NonNull UserRepository userRepository,
                            @NonNull DeckRepository deckRepository,
+                           @NonNull VersionRepository versionRepository,
                            @NonNull DeckConverter deckConverter,
                            @NonNull CardRepository cardRepository,
                            @NonNull CardConverter cardConverter,
@@ -48,6 +47,7 @@ public class DeckServiceImpl implements DeckService {
                            @NonNull TokenParsingServiceImpl tokenParsingServiceImpl) {
         this.userRepository = userRepository;
         this.deckRepository = deckRepository;
+        this.versionRepository = versionRepository;
         this.deckConverter = deckConverter;
         this.cardRepository = cardRepository;
         this.cardConverter = cardConverter;
@@ -90,16 +90,33 @@ public class DeckServiceImpl implements DeckService {
     }
 
     @Override
+    public List<String> getVersions() {
+        List<String> versions = new ArrayList<>();
+        versionRepository.findAll().forEach(versionEntity -> versions.add(versionEntity.getName()));
+        Collections.sort(versions, new SortByName());
+        return versions;
+    }
+
+    @Override
+    public String getVersion(Integer groupId) {
+        return versionRepository.findOneByGroupId(groupId).getName();
+    }
+
+    @Override
     public Card saveCard(Long userId, Long deckId, Card card) {
 
         checkPermissions(userId);
 
         DeckEntity deckEntity = fetchDeck(deckId);
 
+        Integer groupId = versionRepository.findOneByName(card.getVersion()).getGroupId();
+        card.setGroupId(groupId);
+
         Map<String, String> results = tcgService.fetchProductConditionIdAndUrl(card);
         double marketPrice = tcgService.fetchMarketPrice(results.get("productConditionId"));
 
         CardEntity cardEntity = CardEntity.builder()
+                .groupId(groupId)
                 .name(card.getName())
                 .version(card.getVersion())
                 .isFoil(card.getIsFoil())
@@ -278,6 +295,12 @@ public class DeckServiceImpl implements DeckService {
         }
 
         deckRepository.save(deckEntity);
+    }
+
+    private class SortByName implements Comparator<String> {
+        public int compare(String a, String b) {
+            return a.compareTo(b);
+        }
     }
 
     @SneakyThrows

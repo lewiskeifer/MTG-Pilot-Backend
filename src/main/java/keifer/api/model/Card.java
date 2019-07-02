@@ -13,6 +13,8 @@ public class Card {
 
     private Long id;
 
+    private Integer groupId;
+
     private String name;
 
     private String version;
