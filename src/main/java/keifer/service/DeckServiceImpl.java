@@ -311,8 +311,8 @@ public class DeckServiceImpl implements DeckService {
         }
     }
 
-    // Fires at 12 PM every day
-    @Scheduled(cron = "0 0 12 * * ?")
+    // Fires at 4 AM every day
+    @Scheduled(cron="0 0 4 * * *", zone="America/New_York")
     @Override
     public void refreshAllDecks() {
 
