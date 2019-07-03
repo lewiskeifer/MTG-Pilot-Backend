@@ -46,7 +46,6 @@ public class DataMigrationServiceImpl implements DataMigrationService {
 
     // TODO move to configs
     private String textFolderPath = "C:\\Users\\Keifer\\Desktop\\MTG\\main\\input";
-    private String jsonPath = "C:\\Users\\Keifer\\Desktop\\JSON.json";
 
     public DataMigrationServiceImpl(@NonNull UserRepository userRepository,
                                     @NonNull DeckRepository deckRepository,
@@ -279,6 +278,13 @@ public class DataMigrationServiceImpl implements DataMigrationService {
         while (it.hasNext()) {
             JSONObject jsonObject1 = (JSONObject) it.next();
 
+            Integer groupdId = 0;
+            try {
+                groupdId = ((Long) (jsonObject1).get("groupdId")).intValue();
+            } catch (ClassCastException e) {
+                groupdId = (Integer) (jsonObject1).get("groupdId");
+            }
+
             Double marketPrice = 0.0;
             try {
                 marketPrice = ((Long) (jsonObject1).get("marketPrice")).doubleValue();
@@ -294,6 +300,7 @@ public class DataMigrationServiceImpl implements DataMigrationService {
             }
 
             CardEntity cardEntity = CardEntity.builder()
+                    .groupId(groupdId)
                     .marketPrice(marketPrice)
                     .quantity(((Long) (jsonObject1).get("quantity")).intValue())
                     .isFoil((Boolean) (jsonObject1).get("isFoil"))

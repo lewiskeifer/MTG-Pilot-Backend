@@ -21,6 +21,9 @@ public class CardEntity {
     private Long id;
 
     @Column(nullable = false)
+    private Integer groupId;
+
+    @Column(nullable = false)
     private String name;
 
     @Column(nullable = false)
