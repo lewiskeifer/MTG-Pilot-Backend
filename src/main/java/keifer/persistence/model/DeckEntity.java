@@ -5,6 +5,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Fetch;
+import org.hibernate.annotations.FetchMode;
 
 import javax.persistence.*;
 import java.util.ArrayList;
@@ -33,11 +35,13 @@ public class DeckEntity {
     private UserEntity userEntity;
 
     @Builder.Default
-    @OneToMany(mappedBy = "deckEntity", cascade = CascadeType.ALL)
+    @Fetch(value = FetchMode.SUBSELECT)
+    @OneToMany(mappedBy = "deckEntity", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     private List<CardEntity> cardEntities = new ArrayList<>();
 
     @Builder.Default
-    @OneToMany(mappedBy = "deckEntity", cascade = CascadeType.ALL)
+    @Fetch(value = FetchMode.SUBSELECT)
+    @OneToMany(mappedBy = "deckEntity", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     private List<DeckSnapshotEntity> deckSnapshotEntities = new ArrayList<>();
 
 }

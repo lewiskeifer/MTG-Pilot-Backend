@@ -2,11 +2,15 @@ package keifer.service;
 
 
 import com.google.common.collect.ImmutableMap;
+import com.mysql.cj.protocol.a.NativeConstants;
 import keifer.api.model.Card;
+import keifer.persistence.VersionRepository;
+import keifer.persistence.model.VersionEntity;
 import keifer.service.model.YAMLConfig;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.NonNull;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -15,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -23,10 +28,14 @@ public class TcgServiceImpl implements TcgService {
 
     private YAMLConfig yamlConfig;
     private String token;
+    private VersionRepository versionRepository;
 
-    public TcgServiceImpl(YAMLConfig yamlConfig) {
+    private static final String tcgUrlPrefix = "http://api.tcgplayer.com";
+
+    public TcgServiceImpl(@NonNull YAMLConfig yamlConfig, @NonNull VersionRepository versionRepository) {
         this.yamlConfig = yamlConfig;
         token = getToken();
+        this.versionRepository = versionRepository;
     }
 
     private String getToken() {
@@ -50,25 +59,24 @@ public class TcgServiceImpl implements TcgService {
         HttpEntity<String> requestEntity = new HttpEntity<>("parameters", headers);
 
         String url
-                = "http://api.tcgplayer.com/v1.14.0/catalog/products?categoryId=1&productTypes=Cards&Limit=50&productName="
+                = tcgUrlPrefix + "/v1.14.0/catalog/products?categoryId=1&productTypes=Cards&Limit=50&productName="
                 + card.getName();
 
         try {
             ResponseEntity<ProductConditionIdResponse> responseEntity =
                     restTemplate.exchange(url, HttpMethod.GET, requestEntity, ProductConditionIdResponse.class);
 
-            String version = card.getVersion();
-            for (Result result : responseEntity.getBody().getResults()) {
+            for (ProductConditionIdResult productConditionIdResult : responseEntity.getBody().getResults()) {
 
-                if (!result.getUrl().contains(version.toLowerCase())) {
+                if (!Integer.valueOf(productConditionIdResult.getGroupId()).equals(card.getGroupId())) {
                     continue;
                 }
 
-                for (ProductCondition productCondition : result.getProductConditions()) {
+                for (ProductCondition productCondition : productConditionIdResult.getProductConditions()) {
 
                     String condition = card.getIsFoil() ? card.getCardCondition() + " Foil" : card.getCardCondition();
                     if (productCondition.getName().equals(condition)) {
-                        return ImmutableMap.of("productConditionId", productCondition.getProductConditionId(), "image", result.getImage());
+                        return ImmutableMap.of("productConditionId", productCondition.getProductConditionId(), "image", productConditionIdResult.getImage());
                     }
                 }
             }
@@ -79,18 +87,42 @@ public class TcgServiceImpl implements TcgService {
         return ImmutableMap.of("productConditionId", "", "image", "");
     }
 
-    public double fetchMarketPrice(String productConditionId) {
+    @Override
+    public List<String> fetchVersions(String cardName) {
 
-        if (productConditionId == null || productConditionId.equals("")) {
-            return 0;
-        }
+        String url
+                = tcgUrlPrefix + "/v1.14.0/catalog/products?categoryId=1&productTypes=Cards&Limit=50&productName="
+                + cardName;
 
         RestTemplate restTemplate = new RestTemplate();
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(token);
         HttpEntity<String> requestEntity = new HttpEntity<>("parameters", headers);
 
-        String url = "http://api.tcgplayer.com/pricing/marketprices/" + productConditionId;
+        ResponseEntity<ProductConditionIdResponse> responseEntity =
+                restTemplate.exchange(url, HttpMethod.GET, requestEntity, ProductConditionIdResponse.class);
+
+        List<String> versions = new ArrayList<>();
+        for (ProductConditionIdResult productConditionIdResult : responseEntity.getBody().getResults()) {
+            versions.add(versionRepository.findOneByGroupId(Integer.valueOf(productConditionIdResult.groupId)).getName());
+        }
+
+        return versions;
+    }
+
+    @Override
+    public double fetchMarketPrice(String productConditionId) {
+
+        if (productConditionId == null || productConditionId.equals("")) {
+            return 0;
+        }
+
+        String url = tcgUrlPrefix + "/pricing/marketprices/" + productConditionId;
+
+        RestTemplate restTemplate = new RestTemplate();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+        HttpEntity<String> requestEntity = new HttpEntity<>("parameters", headers);
 
         ResponseEntity<MarketPriceResponse> responseEntity =
                 restTemplate.exchange(url, HttpMethod.GET, requestEntity, MarketPriceResponse.class);
@@ -105,6 +137,34 @@ public class TcgServiceImpl implements TcgService {
         return 0;
     }
 
+    @Override
+    public void syncVersions() {
+
+        // TODO prevent dupes
+
+        for (int i = 0; i <4; ++i) {
+
+            int offset = i * 100;
+            String url = tcgUrlPrefix + "/v1.14.0/catalog/categories/1/groups?Limit=100" + "&offset=" + offset;
+
+            RestTemplate restTemplate = new RestTemplate();
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(token);
+            HttpEntity<String> requestEntity = new HttpEntity<>("parameters", headers);
+
+            ResponseEntity<GroupResponse> responseEntity =
+                    restTemplate.exchange(url, HttpMethod.GET, requestEntity, GroupResponse.class);
+
+            for (GroupResult groupResult : responseEntity.getBody().getResults()) {
+                versionRepository.save(VersionEntity.builder()
+                        .groupId(Integer.valueOf(groupResult.getGroupId()))
+                        .name(groupResult.getName())
+                        .abbreviation(groupResult.getAbbreviation() != null ? groupResult.getAbbreviation() : "")
+                        .build());
+            }
+        }
+    }
+
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
@@ -112,13 +172,13 @@ public class TcgServiceImpl implements TcgService {
         private String totalItems;
         private String success;
         private List<String> errors;
-        private List<Result> results;
+        private List<ProductConditionIdResult> results;
     }
 
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
-    private static class Result {
+    private static class ProductConditionIdResult {
         private String productId;
         private String productName;
         private String image;
@@ -156,5 +216,27 @@ public class TcgServiceImpl implements TcgService {
         private Double price;
         private Double lowestRange;
         private Double highestRange;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    private static class GroupResponse {
+        private String totalItems;
+        private String success;
+        private List<String> errors;
+        private List<GroupResult> results;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    private static class GroupResult {
+        private String groupId;
+        private String name;
+        private String abbreviation;
+        private String supplemental;
+        private String publishedOn;
+        private String modifiedOn;
     }
 }

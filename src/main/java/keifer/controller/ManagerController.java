@@ -54,6 +54,25 @@ public class ManagerController {
         userService.deleteUser(userId);
     }
 
+    @GetMapping("/sets/sync")
+    public void syncSets() {
+        tcgService.syncVersions();
+    }
+
+    @GetMapping("/sets")
+    public List<String> getSets() {
+        return deckService.getVersions();
+    }
+
+    @GetMapping("/sets/{cardName}")
+    public List<String> getSets(@PathVariable("cardName") String cardName) {
+        return tcgService.fetchVersions(cardName);
+    }
+
+    @GetMapping("/set/{groupId}")
+    public String getSet(@PathVariable("groupId") Integer groupId) {
+        return deckService.getVersion(groupId);
+    }
 
     @GetMapping("/decks")
     public List<Deck> getAllDecks() {
