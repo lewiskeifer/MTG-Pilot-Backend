@@ -48,7 +48,7 @@ public class CardEntity {
 
     private Double marketPrice;
 
-    @ManyToOne
+    @ManyToOne()
     @JoinColumn(name = "deck_entity_id")
     private DeckEntity deckEntity;
 

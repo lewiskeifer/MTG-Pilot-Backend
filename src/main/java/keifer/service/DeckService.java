@@ -24,7 +24,7 @@ public interface DeckService {
 
     void refreshDeck(Long userId, Long deckId);
 
-    void deleteCard(Long userId, Long cardId);
+    void deleteCard(Long userId, Long deckId, Long cardId);
 
     void deleteDeck(Long userId, Long deckId);
 

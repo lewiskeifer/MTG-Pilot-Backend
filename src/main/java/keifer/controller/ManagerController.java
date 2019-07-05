@@ -113,7 +113,7 @@ public class ManagerController {
     public void deleteCard(@PathVariable("userId") Long userId,
                            @PathVariable("deckId") Long deckId,
                            @PathVariable("cardId") Long cardId) {
-        deckService.deleteCard(userId, cardId);
+        deckService.deleteCard(userId, deckId, cardId);
     }
 
     @DeleteMapping("/{userId}/decks/{deckId}")

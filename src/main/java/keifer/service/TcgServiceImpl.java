@@ -7,10 +7,7 @@ import keifer.api.model.Card;
 import keifer.persistence.VersionRepository;
 import keifer.persistence.model.VersionEntity;
 import keifer.service.model.YAMLConfig;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.NonNull;
+import lombok.*;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -19,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
+import javax.servlet.ServletException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -51,6 +49,7 @@ public class TcgServiceImpl implements TcgService {
     }
 
     // TODO language support
+    @SneakyThrows
     public Map<String, String> fetchProductConditionIdAndUrl(Card card) {
 
         RestTemplate restTemplate = new RestTemplate();
@@ -81,13 +80,14 @@ public class TcgServiceImpl implements TcgService {
                 }
             }
         } catch (HttpClientErrorException e) {
-            return ImmutableMap.of("productConditionId", "", "image", "");
+            throw new ServletException("Failed to find card with name: " + card.getName() + " and set: " + card.getVersion());
         }
 
-        return ImmutableMap.of("productConditionId", "", "image", "");
+        throw new ServletException("Failed to find card with name: " + card.getName() + " and set: " + card.getVersion());
     }
 
     @Override
+    @SneakyThrows
     public List<String> fetchVersions(String cardName) {
 
         String url
@@ -99,8 +99,12 @@ public class TcgServiceImpl implements TcgService {
         headers.setBearerAuth(token);
         HttpEntity<String> requestEntity = new HttpEntity<>("parameters", headers);
 
-        ResponseEntity<ProductConditionIdResponse> responseEntity =
-                restTemplate.exchange(url, HttpMethod.GET, requestEntity, ProductConditionIdResponse.class);
+        ResponseEntity<ProductConditionIdResponse> responseEntity = null;
+        try {
+            responseEntity = restTemplate.exchange(url, HttpMethod.GET, requestEntity, ProductConditionIdResponse.class);
+        } catch (HttpClientErrorException e) {
+            throw new ServletException("Failed to find card with name: " + cardName);
+        }
 
         List<String> versions = new ArrayList<>();
         for (ProductConditionIdResult productConditionIdResult : responseEntity.getBody().getResults()) {
@@ -111,6 +115,7 @@ public class TcgServiceImpl implements TcgService {
     }
 
     @Override
+    @SneakyThrows
     public double fetchMarketPrice(String productConditionId) {
 
         if (productConditionId == null || productConditionId.equals("")) {
@@ -124,8 +129,13 @@ public class TcgServiceImpl implements TcgService {
         headers.setBearerAuth(token);
         HttpEntity<String> requestEntity = new HttpEntity<>("parameters", headers);
 
-        ResponseEntity<MarketPriceResponse> responseEntity =
-                restTemplate.exchange(url, HttpMethod.GET, requestEntity, MarketPriceResponse.class);
+        ResponseEntity<MarketPriceResponse> responseEntity = null;
+        try {
+            responseEntity = restTemplate.exchange(url, HttpMethod.GET, requestEntity, MarketPriceResponse.class);
+        }
+        catch (HttpClientErrorException e) {
+            throw new ServletException("Failed to find card");
+        }
 
         List<MarketPriceResult> results = responseEntity.getBody().getResults();
 
