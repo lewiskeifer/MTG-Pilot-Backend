@@ -144,7 +144,7 @@ public class DeckServiceImpl implements DeckService {
     }
 
     @Override
-    public void saveDeck(Long userId, Deck deck) throws ServletException {
+    public Deck saveDeck(Long userId, Deck deck) throws ServletException {
 
         checkPermissions(userId);
 
@@ -167,11 +167,11 @@ public class DeckServiceImpl implements DeckService {
             deckEntity.setDeckFormat(DeckFormat.fromString(deck.getFormat()));
         }
 
-        deckRepository.save(deckEntity);
+        return deckConverter.convert(deckRepository.save(deckEntity));
     }
 
     @Override
-    public void refreshDeck(Long userId, Long deckId) {
+    public void createDeckSnapshot(Long userId, Long deckId) {
 
         checkPermissions(userId);
 
