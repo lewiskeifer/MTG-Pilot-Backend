@@ -98,22 +98,22 @@ public class ManagerController {
     }
 
     @PutMapping("/{userId}/decks")
-    public void saveDeck(@PathVariable("userId") Long userId,
+    public Deck saveDeck(@PathVariable("userId") Long userId,
                          @RequestBody Deck deck) throws ServletException {
-        deckService.saveDeck(userId, deck);
+        return deckService.saveDeck(userId, deck);
     }
 
     @PutMapping("/{userId}/decks/{deckId}/refresh")
-    public void refreshDeck(@PathVariable("userId") Long userId,
-                            @PathVariable("deckId") Long deckId) {
-        deckService.refreshDeck(userId, deckId);
+    public void createDeckSnapshot(@PathVariable("userId") Long userId,
+                                   @PathVariable("deckId") Long deckId) {
+        deckService.createDeckSnapshot(userId, deckId);
     }
 
     @DeleteMapping("/{userId}/decks/{deckId}/cards/{cardId}")
     public void deleteCard(@PathVariable("userId") Long userId,
                            @PathVariable("deckId") Long deckId,
                            @PathVariable("cardId") Long cardId) {
-        deckService.deleteCard(userId, cardId);
+        deckService.deleteCard(userId, deckId, cardId);
     }
 
     @DeleteMapping("/{userId}/decks/{deckId}")

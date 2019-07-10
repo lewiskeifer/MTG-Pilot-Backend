@@ -144,7 +144,7 @@ public class DeckServiceImpl implements DeckService {
     }
 
     @Override
-    public void saveDeck(Long userId, Deck deck) throws ServletException {
+    public Deck saveDeck(Long userId, Deck deck) throws ServletException {
 
         checkPermissions(userId);
 
@@ -167,11 +167,11 @@ public class DeckServiceImpl implements DeckService {
             deckEntity.setDeckFormat(DeckFormat.fromString(deck.getFormat()));
         }
 
-        deckRepository.save(deckEntity);
+        return deckConverter.convert(deckRepository.save(deckEntity));
     }
 
     @Override
-    public void refreshDeck(Long userId, Long deckId) {
+    public void createDeckSnapshot(Long userId, Long deckId) {
 
         checkPermissions(userId);
 
@@ -206,11 +206,25 @@ public class DeckServiceImpl implements DeckService {
     }
 
     @Override
-    public void deleteCard(Long userId, Long cardId) {
+    public void deleteCard(Long userId, Long deckId, Long cardId) {
 
         checkPermissions(userId);
 
-        cardRepository.deleteById(cardId);
+        DeckEntity deckEntity = fetchDeck(deckId);
+        int count = 0;
+        for (CardEntity cardEntity : deckEntity.getCardEntities()) {
+            if (cardEntity.getId().equals(cardId)) {
+                deckEntity.getCardEntities().remove(count);
+                break;
+            }
+            count++;
+        }
+        deckRepository.save(deckEntity);
+
+        CardEntity cardEntity = cardRepository.findOneById(cardId);
+
+        // TODO check if necessary
+        cardRepository.delete(cardEntity);
     }
 
     @Override
@@ -277,7 +291,6 @@ public class DeckServiceImpl implements DeckService {
 
         List<DeckSnapshotEntity> deckSnapshotEntities = deckEntity.getDeckSnapshotEntities();
 
-        // TODO will overwrite when last day someone updated a deck happens to be exactly a year ago
         if (!deckSnapshotEntities.isEmpty() && localDateTime.getDayOfYear() ==
                 deckSnapshotEntities.get(deckEntity.getDeckSnapshotEntities().size() - 1).getTimestamp().getDayOfYear()) {
 

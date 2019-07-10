@@ -20,11 +20,11 @@ public interface DeckService {
 
     Card saveCard(Long userId, Long deckId, Card card);
 
-    void saveDeck(Long userId, Deck deck) throws ServletException;
+    Deck saveDeck(Long userId, Deck deck) throws ServletException;
 
-    void refreshDeck(Long userId, Long deckId);
+    void createDeckSnapshot(Long userId, Long deckId);
 
-    void deleteCard(Long userId, Long cardId);
+    void deleteCard(Long userId, Long deckId, Long cardId);
 
     void deleteDeck(Long userId, Long deckId);
 
