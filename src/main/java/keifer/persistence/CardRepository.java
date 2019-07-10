@@ -9,4 +9,6 @@ public interface CardRepository extends CrudRepository<CardEntity, Long> {
 
     List<CardEntity> findAll();
 
+    CardEntity findOneById(Long id);
+
 }
