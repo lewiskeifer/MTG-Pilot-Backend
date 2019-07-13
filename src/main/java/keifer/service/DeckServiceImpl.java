@@ -109,7 +109,7 @@ public class DeckServiceImpl implements DeckService {
 
         DeckEntity deckEntity = fetchDeck(deckId);
 
-        Integer groupId = versionRepository.findOneByName(card.getVersion()).getGroupId();
+        Integer groupId = versionRepository.findOneByName(card.getSet()).getGroupId();
         card.setGroupId(groupId);
 
         Map<String, String> results = tcgService.fetchProductConditionIdAndUrl(card);
@@ -118,7 +118,7 @@ public class DeckServiceImpl implements DeckService {
         CardEntity cardEntity = CardEntity.builder()
                 .groupId(groupId)
                 .name(card.getName())
-                .version(card.getVersion())
+                .version(card.getSet())
                 .isFoil(card.getIsFoil())
                 .cardCondition(CardCondition.fromString(card.getCardCondition()))
                 .purchasePrice(card.getPurchasePrice())
@@ -256,7 +256,7 @@ public class DeckServiceImpl implements DeckService {
             deck.getCards().add(Card.builder()
                     .id(count++)
                     .name(newDeck.getName())
-                    .version("")
+                    .set("")
                     .purchasePrice(0.0)
                     .quantity(1)
                     .url("")
