@@ -1,4 +1,4 @@
-# FMTG Pilot Backend
+# MTG Pilot Backend
 
 Spring Boot backend that powers the front-end project.
 
