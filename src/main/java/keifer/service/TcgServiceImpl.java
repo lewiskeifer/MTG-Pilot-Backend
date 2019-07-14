@@ -80,10 +80,10 @@ public class TcgServiceImpl implements TcgService {
                 }
             }
         } catch (HttpClientErrorException e) {
-            throw new ServletException("Failed to find card with name: " + card.getName() + " and set: " + card.getVersion());
+            throw new ServletException("Failed to find card with name: " + card.getName() + " and set: " + card.getSet());
         }
 
-        throw new ServletException("Failed to find card with name: " + card.getName() + " and set: " + card.getVersion());
+        throw new ServletException("Failed to find card with name: " + card.getName() + " and set: " + card.getSet());
     }
 
     @Override

@@ -17,7 +17,9 @@ public class Card {
 
     private String name;
 
-    private String version;
+    private String set;
+
+    private String abbreviation;
 
     private Boolean isFoil;
 
