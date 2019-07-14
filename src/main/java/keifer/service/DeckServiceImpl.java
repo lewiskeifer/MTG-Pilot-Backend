@@ -249,15 +249,17 @@ public class DeckServiceImpl implements DeckService {
         long count = 0L;
         for (Deck newDeck : decks) {
             double deckValue = 0;
+            double purchasePrice = 0;
             for (Card card : newDeck.getCards()) {
                 deckValue += (card.getMarketPrice() * card.getQuantity());
+                purchasePrice += card.getPurchasePrice();
             }
 
             deck.getCards().add(Card.builder()
                     .id(count++)
                     .name(newDeck.getName())
                     .set("")
-                    .purchasePrice(0.0)
+                    .purchasePrice(purchasePrice)
                     .quantity(1)
                     .url("")
                     .marketPrice(deckValue)
