@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 
 import javax.security.sasl.AuthenticationException;
 import javax.servlet.ServletException;
+import javax.xml.bind.ValidationException;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -84,7 +85,7 @@ public class DeckServiceImpl implements DeckService {
             return getDeckOverview(userId);
         }
 
-        DeckEntity deckEntity = fetchDeck(deckId);
+        DeckEntity deckEntity = fetchDeck(userId, deckId);
 
         return deckConverter.convert(deckEntity);
     }
@@ -107,7 +108,9 @@ public class DeckServiceImpl implements DeckService {
 
         checkPermissions(userId);
 
-        DeckEntity deckEntity = fetchDeck(deckId);
+        checkCard(card);
+
+        DeckEntity deckEntity = fetchDeck(userId, deckId);
 
         Integer groupId = versionRepository.findOneByName(card.getSet()).getGroupId();
         card.setGroupId(groupId);
@@ -162,7 +165,7 @@ public class DeckServiceImpl implements DeckService {
                     .userEntity(userEntity)
                     .build();
         } else {
-            deckEntity = fetchDeck(deck.getId());
+            deckEntity = fetchDeck(userId, deck.getId());
             deckEntity.setName(deck.getName());
             deckEntity.setDeckFormat(DeckFormat.fromString(deck.getFormat()));
         }
@@ -193,7 +196,7 @@ public class DeckServiceImpl implements DeckService {
             return;
         }
 
-        DeckEntity deckEntity = fetchDeck(deckId);
+        DeckEntity deckEntity = fetchDeck(userId, deckId);
         double aggregatePurchasePrice = 0;
         double aggregateValue = 0;
 
@@ -210,7 +213,7 @@ public class DeckServiceImpl implements DeckService {
 
         checkPermissions(userId);
 
-        DeckEntity deckEntity = fetchDeck(deckId);
+        DeckEntity deckEntity = fetchDeck(userId, deckId);
         int count = 0;
         for (CardEntity cardEntity : deckEntity.getCardEntities()) {
             if (cardEntity.getId().equals(cardId)) {
@@ -232,7 +235,7 @@ public class DeckServiceImpl implements DeckService {
 
         checkPermissions(userId);
 
-        DeckEntity deckEntity = fetchDeck(deckId);
+        DeckEntity deckEntity = fetchDeck(userId, deckId);
 
         deckRepository.delete(deckEntity);
     }
@@ -269,9 +272,9 @@ public class DeckServiceImpl implements DeckService {
         return deck;
     }
 
-    private DeckEntity fetchDeck(Long deckId) {
+    private DeckEntity fetchDeck(Long userId, Long deckId) {
 
-        DeckEntity deckEntity = deckRepository.findOneById(deckId);
+        DeckEntity deckEntity = deckRepository.findOneByUserEntityIdAndId(userId, deckId);
         if (deckEntity == null) {
             throw new Error("Deck with id: " + deckId + " not found.");
         }
@@ -323,6 +326,17 @@ public class DeckServiceImpl implements DeckService {
 
         if (!id.equals(tokenParsingServiceImpl.getUserId())) {
             throw new AuthenticationException("User is not authorized.");
+        }
+    }
+
+    @SneakyThrows
+    private void checkCard(Card card) {
+
+        if (card.getQuantity() < 1) {
+            throw new ServletException("Quantity must be greater than 0.");
+        }
+        if (card.getPurchasePrice() <= 0) {
+            throw new ServletException("Purchase Price must be greater than 0.");
         }
     }
 
