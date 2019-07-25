@@ -9,7 +9,7 @@ public interface DeckRepository extends CrudRepository<DeckEntity, Long> {
 
     List<DeckEntity> findAll();
 
-    DeckEntity findOneById(Long id);
+    DeckEntity findOneByUserEntityIdAndId(Long userEntityId, Long id);
 
     List<DeckEntity> findByUserEntityId(Long userEntityId);
 
