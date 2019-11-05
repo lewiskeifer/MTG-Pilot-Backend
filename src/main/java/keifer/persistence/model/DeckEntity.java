@@ -30,6 +30,9 @@ public class DeckEntity {
     @Column(nullable = false)
     private DeckFormat deckFormat;
 
+    @Column(nullable = false)
+    private Integer sortOrder;
+
     @ManyToOne
     @JoinColumn(name = "user_entity_id")
     private UserEntity userEntity;
