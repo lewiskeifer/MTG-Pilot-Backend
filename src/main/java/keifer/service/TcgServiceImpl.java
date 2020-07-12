@@ -2,7 +2,6 @@ package keifer.service;
 
 
 import com.google.common.collect.ImmutableMap;
-import com.mysql.cj.protocol.a.NativeConstants;
 import keifer.api.model.Card;
 import keifer.persistence.VersionRepository;
 import keifer.persistence.model.VersionEntity;
@@ -28,7 +27,7 @@ public class TcgServiceImpl implements TcgService {
     private String token;
     private VersionRepository versionRepository;
 
-    private static final String tcgUrlPrefix = "http://api.tcgplayer.com";
+    private static final String tcgUrlPrefix = "https://api.tcgplayer.com";
 
     public TcgServiceImpl(@NonNull YAMLConfig yamlConfig, @NonNull VersionRepository versionRepository) {
         this.yamlConfig = yamlConfig;
@@ -125,6 +124,7 @@ public class TcgServiceImpl implements TcgService {
         String url = tcgUrlPrefix + "/pricing/marketprices/" + productConditionId;
 
         RestTemplate restTemplate = new RestTemplate();
+
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(token);
         HttpEntity<String> requestEntity = new HttpEntity<>("parameters", headers);
@@ -134,7 +134,7 @@ public class TcgServiceImpl implements TcgService {
             responseEntity = restTemplate.exchange(url, HttpMethod.GET, requestEntity, MarketPriceResponse.class);
         }
         catch (HttpClientErrorException e) {
-            throw new ServletException("Failed to find card");
+            System.out.println("Failed to find card with productConditionId: " + productConditionId);
         }
 
         List<MarketPriceResult> results = responseEntity.getBody().getResults();
