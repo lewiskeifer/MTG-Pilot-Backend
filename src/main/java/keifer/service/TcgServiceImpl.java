@@ -8,16 +8,16 @@ import keifer.persistence.VersionRepository;
 import keifer.persistence.model.VersionEntity;
 import keifer.service.model.YAMLConfig;
 import lombok.*;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
+import org.springframework.http.converter.HttpMessageConverter;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import javax.servlet.ServletException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -28,7 +28,7 @@ public class TcgServiceImpl implements TcgService {
     private String token;
     private VersionRepository versionRepository;
 
-    private static final String tcgUrlPrefix = "http://api.tcgplayer.com";
+    private static final String tcgUrlPrefix = "https://api.tcgplayer.com";
 
     public TcgServiceImpl(@NonNull YAMLConfig yamlConfig, @NonNull VersionRepository versionRepository) {
         this.yamlConfig = yamlConfig;
@@ -125,6 +125,7 @@ public class TcgServiceImpl implements TcgService {
         String url = tcgUrlPrefix + "/pricing/marketprices/" + productConditionId;
 
         RestTemplate restTemplate = new RestTemplate();
+
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(token);
         HttpEntity<String> requestEntity = new HttpEntity<>("parameters", headers);
@@ -134,7 +135,7 @@ public class TcgServiceImpl implements TcgService {
             responseEntity = restTemplate.exchange(url, HttpMethod.GET, requestEntity, MarketPriceResponse.class);
         }
         catch (HttpClientErrorException e) {
-            throw new ServletException("Failed to find card");
+            System.out.println("Failed to find card with productConditionId: " + productConditionId);
         }
 
         List<MarketPriceResult> results = responseEntity.getBody().getResults();
