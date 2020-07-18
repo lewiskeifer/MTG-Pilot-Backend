@@ -11,6 +11,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
@@ -107,7 +108,7 @@ public class TcgServiceImpl implements TcgService {
 
         List<String> versions = new ArrayList<>();
         for (ProductConditionIdResult productConditionIdResult : responseEntity.getBody().getResults()) {
-            versions.add(versionRepository.findOneByGroupId(Integer.valueOf(productConditionIdResult.groupId)).getName());
+            versions.add(versionRepository.findTopByGroupId(Integer.valueOf(productConditionIdResult.groupId)).getName());
         }
 
         return versions;
@@ -148,6 +149,8 @@ public class TcgServiceImpl implements TcgService {
         return 0;
     }
 
+    // Fires at 8 AM every day
+    @Scheduled(cron="0 0 8 * * *", zone="America/New_York")
     @Override
     public void syncVersions() {
 
