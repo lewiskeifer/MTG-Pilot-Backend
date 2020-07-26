@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.servlet.ServletException;
+import java.security.NoSuchAlgorithmException;
 
 
 @Api
@@ -25,12 +26,17 @@ public class LoginController {
     }
 
     @PostMapping("/register")
-    public void register(@RequestBody User user) throws ServletException {
+    public void register(@RequestBody User user)  {
         userService.saveUser(user);
     }
 
     @PostMapping("/login")
-    public User login(@RequestBody Login login) throws ServletException {
+    public User login(@RequestBody Login login) {
         return userService.login(login);
+    }
+
+    @PostMapping("/reset-password")
+    public User resetPassword(@RequestBody User user) {
+        return userService.resetPassword(user);
     }
 }
