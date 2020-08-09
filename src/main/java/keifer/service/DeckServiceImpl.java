@@ -181,17 +181,7 @@ public class DeckServiceImpl implements DeckService {
         // Deck Overview
         if (deckId == 0) {
             List<DeckEntity> deckEntities = deckRepository.findByUserEntityId(userId);
-            for (DeckEntity deckEntity : deckEntities) {
-
-                double aggregatePurchasePrice = 0;
-                double aggregateValue = 0;
-                for (CardEntity cardEntity : deckEntity.getCardEntities()) {
-                    aggregatePurchasePrice += cardEntity.getPurchasePrice();
-                    aggregateValue += (saveCardEntity(cardEntity) * cardEntity.getQuantity());
-                }
-
-                saveDeckEntitySnapshot(deckEntity, aggregatePurchasePrice, aggregateValue);
-            }
+            deckEntities.parallelStream().forEach(this::updateDeckMarketPrice);
 
             return;
         }
@@ -280,6 +270,18 @@ public class DeckServiceImpl implements DeckService {
         }
 
         return deckEntity;
+    }
+
+    private void updateDeckMarketPrice(DeckEntity deckEntity) {
+
+        double aggregatePurchasePrice = 0;
+        double aggregateValue = 0;
+        for (CardEntity cardEntity : deckEntity.getCardEntities()) {
+            aggregatePurchasePrice += cardEntity.getPurchasePrice();
+            aggregateValue += (saveCardEntity(cardEntity) * cardEntity.getQuantity());
+        }
+
+        saveDeckEntitySnapshot(deckEntity, aggregatePurchasePrice, aggregateValue);
     }
 
     private double saveCardEntity(CardEntity cardEntity) {
