@@ -23,7 +23,7 @@ public class CardConverter {
                 .groupId(source.getGroupId())
                 .name(source.getName())
                 .set(source.getVersion())
-                .abbreviation(versionRepository.findOneByGroupId(source.getGroupId()).getAbbreviation())
+                .abbreviation(versionRepository.findTopByGroupId(source.getGroupId()).getAbbreviation())
                 .isFoil(source.getIsFoil())
                 .cardCondition(source.getCardCondition().toString())
                 .purchasePrice(source.getPurchasePrice())

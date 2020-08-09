@@ -14,13 +14,11 @@ import keifer.service.model.DeckFormat;
 import lombok.NonNull;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import net.bytebuddy.TypeCache;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import javax.security.sasl.AuthenticationException;
 import javax.servlet.ServletException;
-import javax.xml.bind.ValidationException;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -100,7 +98,7 @@ public class DeckServiceImpl implements DeckService {
 
     @Override
     public String getVersion(Integer groupId) {
-        return versionRepository.findOneByGroupId(groupId).getName();
+        return versionRepository.findTopByGroupId(groupId).getName();
     }
 
     @Override
@@ -112,7 +110,7 @@ public class DeckServiceImpl implements DeckService {
 
         DeckEntity deckEntity = fetchDeck(userId, deckId);
 
-        Integer groupId = versionRepository.findOneByName(card.getSet()).getGroupId();
+        Integer groupId = versionRepository.findTopByName(card.getSet()).getGroupId();
         card.setGroupId(groupId);
 
         Map<String, String> results = tcgService.fetchProductConditionIdAndUrl(card);
@@ -163,11 +161,13 @@ public class DeckServiceImpl implements DeckService {
                     .name(deck.getName())
                     .deckFormat(DeckFormat.fromString(deck.getFormat()))
                     .userEntity(userEntity)
+                    .sortOrder(0) //TODO
                     .build();
         } else {
             deckEntity = fetchDeck(userId, deck.getId());
             deckEntity.setName(deck.getName());
             deckEntity.setDeckFormat(DeckFormat.fromString(deck.getFormat()));
+            deckEntity.setSortOrder(0); //TODO
         }
 
         return deckConverter.convert(deckRepository.save(deckEntity));
@@ -181,17 +181,7 @@ public class DeckServiceImpl implements DeckService {
         // Deck Overview
         if (deckId == 0) {
             List<DeckEntity> deckEntities = deckRepository.findByUserEntityId(userId);
-            for (DeckEntity deckEntity : deckEntities) {
-
-                double aggregatePurchasePrice = 0;
-                double aggregateValue = 0;
-                for (CardEntity cardEntity : deckEntity.getCardEntities()) {
-                    aggregatePurchasePrice += cardEntity.getPurchasePrice();
-                    aggregateValue += (saveCardEntity(cardEntity) * cardEntity.getQuantity());
-                }
-
-                saveDeckEntitySnapshot(deckEntity, aggregatePurchasePrice, aggregateValue);
-            }
+            deckEntities.parallelStream().forEach(this::updateDeckMarketPrice);
 
             return;
         }
@@ -280,6 +270,18 @@ public class DeckServiceImpl implements DeckService {
         }
 
         return deckEntity;
+    }
+
+    private void updateDeckMarketPrice(DeckEntity deckEntity) {
+
+        double aggregatePurchasePrice = 0;
+        double aggregateValue = 0;
+        for (CardEntity cardEntity : deckEntity.getCardEntities()) {
+            aggregatePurchasePrice += cardEntity.getPurchasePrice();
+            aggregateValue += (saveCardEntity(cardEntity) * cardEntity.getQuantity());
+        }
+
+        saveDeckEntitySnapshot(deckEntity, aggregatePurchasePrice, aggregateValue);
     }
 
     private double saveCardEntity(CardEntity cardEntity) {

@@ -19,6 +19,8 @@ public class Deck {
 
     private String format;
 
+    private Integer sortOrder;
+
     private List<Card> cards;
 
     private List<DeckSnapshot> deckSnapshots;

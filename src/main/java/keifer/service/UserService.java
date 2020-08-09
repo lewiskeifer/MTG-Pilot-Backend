@@ -4,17 +4,20 @@ import keifer.api.model.Login;
 import keifer.api.model.User;
 
 import javax.servlet.ServletException;
+import java.security.NoSuchAlgorithmException;
 import java.util.List;
 
 public interface UserService {
-
-    User login(Login login) throws ServletException;
 
     List<User> getUsers();
 
     User getUser(Long userId);
 
-    User saveUser(User user) throws ServletException;
+    User login(Login login);
+
+    User saveUser(User user);
+
+    User resetPassword(User user);
 
     void deleteUser(Long userId);
 

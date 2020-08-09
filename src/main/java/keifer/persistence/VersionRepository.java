@@ -5,8 +5,8 @@ import org.springframework.data.repository.CrudRepository;
 
 public interface VersionRepository extends CrudRepository<VersionEntity, Long> {
 
-    VersionEntity findOneByGroupId(Integer groupId);
+    VersionEntity findTopByGroupId(Integer groupId);
 
-    VersionEntity findOneByName(String name);
+    VersionEntity findTopByName(String name);
 
 }
