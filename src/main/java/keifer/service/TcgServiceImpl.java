@@ -154,9 +154,7 @@ public class TcgServiceImpl implements TcgService {
     @Override
     public void syncVersions() {
 
-        // TODO prevent dupes
-
-        for (int i = 0; i <4; ++i) {
+        for (int i = 0; i < 5; ++i) {
 
             int offset = i * 100;
             String url = tcgUrlPrefix + "/v1.14.0/catalog/categories/1/groups?Limit=100" + "&offset=" + offset;
@@ -170,11 +168,13 @@ public class TcgServiceImpl implements TcgService {
                     restTemplate.exchange(url, HttpMethod.GET, requestEntity, GroupResponse.class);
 
             for (GroupResult groupResult : responseEntity.getBody().getResults()) {
-                versionRepository.save(VersionEntity.builder()
-                        .groupId(Integer.valueOf(groupResult.getGroupId()))
-                        .name(groupResult.getName())
-                        .abbreviation(groupResult.getAbbreviation() != null ? groupResult.getAbbreviation() : "")
-                        .build());
+                if (versionRepository.findTopByName(groupResult.getName()) == null) {
+                    versionRepository.save(VersionEntity.builder()
+                            .groupId(Integer.valueOf(groupResult.getGroupId()))
+                            .name(groupResult.getName())
+                            .abbreviation(groupResult.getAbbreviation() != null ? groupResult.getAbbreviation() : "")
+                            .build());
+                }
             }
         }
     }
