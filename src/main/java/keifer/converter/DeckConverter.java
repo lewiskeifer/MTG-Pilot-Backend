@@ -24,6 +24,7 @@ public class DeckConverter {
                 .id(source.getId())
                 .name(source.getName())
                 .format(source.getDeckFormat().toString())
+                .sortOrder(source.getSortOrder())
                 .cards(source.getCardEntities().stream()
                         .map(cardConverter::convert).collect(Collectors.toList()))
                 .deckSnapshots(source.getDeckSnapshotEntities().stream()

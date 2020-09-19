@@ -103,6 +103,13 @@ public class ManagerController {
         return deckService.saveDeck(userId, deck);
     }
 
+    @PutMapping("/{userId}/decks/{deckId}/ordering")
+    public Deck saveDeckOrdering(@PathVariable("userId") Long userId,
+                                 @PathVariable("deckId") Long deckId,
+                                 @RequestBody Integer order) {
+        return deckService.saveDeckOrdering(userId, deckId, order);
+    }
+
     @PutMapping("/{userId}/decks/{deckId}/refresh")
     public void createDeckSnapshot(@PathVariable("userId") Long userId,
                                    @PathVariable("deckId") Long deckId) {
