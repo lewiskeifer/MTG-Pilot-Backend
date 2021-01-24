@@ -22,6 +22,8 @@ public interface DeckService {
 
     Deck saveDeck(Long userId, Deck deck) throws ServletException;
 
+    Deck saveDeckOrdering(Long userId, Long deckId, Integer order);
+
     void createDeckSnapshot(Long userId, Long deckId);
 
     void deleteCard(Long userId, Long deckId, Long cardId);

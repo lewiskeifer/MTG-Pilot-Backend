@@ -67,7 +67,7 @@ public class DeckServiceImpl implements DeckService {
 
         List<Deck> decks = new ArrayList<>();
         decks.add(getDeckOverview(userId));
-        decks.addAll(deckRepository.findByUserEntityId(userId).stream()
+        decks.addAll(deckRepository.findByUserEntityIdOrderBySortOrderAsc(userId).stream()
                 .map(deckConverter::convert).collect(Collectors.toList()));
 
         return decks;
@@ -151,7 +151,8 @@ public class DeckServiceImpl implements DeckService {
 
         DeckEntity deckEntity = null;
 
-        if (deck.getId() == null || deck.getId() < 1) {
+        // ID with val -1 == new deck
+        if (deck.getId() == null || deck.getId() == -1) {
             UserEntity userEntity = userRepository.findOneById(userId);
             if (userEntity == null) {
                 throw new ServletException("User with id " + userId + " does not exist.");
@@ -161,14 +162,25 @@ public class DeckServiceImpl implements DeckService {
                     .name(deck.getName())
                     .deckFormat(DeckFormat.fromString(deck.getFormat()))
                     .userEntity(userEntity)
-                    .sortOrder(0) //TODO
+                    .sortOrder(deck.getSortOrder() == null ? deckRepository.findMaxSortOrder() + 1 : deck.getSortOrder())
                     .build();
         } else {
             deckEntity = fetchDeck(userId, deck.getId());
             deckEntity.setName(deck.getName());
             deckEntity.setDeckFormat(DeckFormat.fromString(deck.getFormat()));
-            deckEntity.setSortOrder(0); //TODO
+            deckEntity.setSortOrder(deck.getSortOrder());
         }
+
+        return deckConverter.convert(deckRepository.save(deckEntity));
+    }
+
+    @Override
+    public Deck saveDeckOrdering(Long userId, Long deckId, Integer order) {
+
+        checkPermissions(userId);
+
+        DeckEntity deckEntity = fetchDeck(userId, deckId);
+        deckEntity.setSortOrder(order);
 
         return deckConverter.convert(deckRepository.save(deckEntity));
     }
@@ -180,7 +192,7 @@ public class DeckServiceImpl implements DeckService {
 
         // Deck Overview
         if (deckId == 0) {
-            List<DeckEntity> deckEntities = deckRepository.findByUserEntityId(userId);
+            List<DeckEntity> deckEntities = deckRepository.findByUserEntityIdOrderBySortOrderAsc(userId);
             deckEntities.parallelStream().forEach(this::updateDeckMarketPrice);
 
             return;
@@ -236,7 +248,7 @@ public class DeckServiceImpl implements DeckService {
 
         Deck deck = Deck.builder().id(0L).name("Deck Overview").cards(new ArrayList<>()).build();
 
-        List<Deck> decks = deckRepository.findByUserEntityId(userId).stream().map(deckConverter::convert)
+        List<Deck> decks = deckRepository.findByUserEntityIdOrderBySortOrderAsc(userId).stream().map(deckConverter::convert)
                 .collect(Collectors.toList());
 
         long count = 0L;
