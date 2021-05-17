@@ -168,12 +168,14 @@ public class DeckServiceImpl implements DeckService {
             deckEntity = fetchDeck(userId, deck.getId());
             deckEntity.setName(deck.getName());
             deckEntity.setDeckFormat(DeckFormat.fromString(deck.getFormat()));
+            cascadeDeckOrdering(userId, deckEntity.getSortOrder(), deck.getSortOrder());
             deckEntity.setSortOrder(deck.getSortOrder());
         }
 
         return deckConverter.convert(deckRepository.save(deckEntity));
     }
 
+    @Deprecated
     @Override
     public Deck saveDeckOrdering(Long userId, Long deckId, Integer order) {
 
@@ -238,6 +240,8 @@ public class DeckServiceImpl implements DeckService {
         checkPermissions(userId);
 
         DeckEntity deckEntity = fetchDeck(userId, deckId);
+
+        cascadeDeckOrdering(userId, deckEntity.getSortOrder(), deckRepository.findMaxSortOrder());
 
         deckRepository.delete(deckEntity);
     }
@@ -327,6 +331,26 @@ public class DeckServiceImpl implements DeckService {
         }
 
         deckRepository.save(deckEntity);
+    }
+
+    private void cascadeDeckOrdering(Long userId, int oldOrder, int newOrder) {
+        List<DeckEntity> decks = deckRepository.findByUserEntityIdOrderBySortOrderAsc(userId);
+        // Sift down
+        if (newOrder > oldOrder) {
+            for (int i = oldOrder; i < newOrder; ++i) {
+                DeckEntity deckEntity = decks.get(i);
+                deckEntity.setSortOrder(i);
+                deckConverter.convert(deckRepository.save(deckEntity));
+            }
+        }
+        // Sift up
+        else if (oldOrder > newOrder) {
+            for (int i = newOrder; i < oldOrder; ++i) {
+                DeckEntity deckEntity = decks.get(i - 1);
+                deckEntity.setSortOrder(i + 1);
+                deckConverter.convert(deckRepository.save(deckEntity));
+            }
+        }
     }
 
     private class SortByName implements Comparator<String> {
