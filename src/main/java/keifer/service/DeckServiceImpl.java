@@ -302,8 +302,11 @@ public class DeckServiceImpl implements DeckService {
 
     private double saveCardEntity(CardEntity cardEntity) {
 
-        cardEntity.setMarketPrice(tcgService.fetchMarketPrice(cardEntity.getProductConditionId()));
-        cardRepository.save(cardEntity);
+        double newValue = tcgService.fetchMarketPrice(cardEntity.getProductConditionId());
+        if (newValue != 0.0) {
+            cardEntity.setMarketPrice(newValue);
+            cardRepository.save(cardEntity);
+        }
 
         return cardEntity.getMarketPrice();
     }
