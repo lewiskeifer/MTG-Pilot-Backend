@@ -340,7 +340,7 @@ public class DeckServiceImpl implements DeckService {
         List<DeckEntity> decks = deckRepository.findByUserEntityIdOrderBySortOrderAsc(userId);
         // Sift down
         if (newOrder > oldOrder) {
-            for (int i = oldOrder; i < newOrder; ++i) {
+            for (int i = oldOrder; i < decks.size(); ++i) {
                 DeckEntity deckEntity = decks.get(i);
                 deckEntity.setSortOrder(i);
                 deckConverter.convert(deckRepository.save(deckEntity));
