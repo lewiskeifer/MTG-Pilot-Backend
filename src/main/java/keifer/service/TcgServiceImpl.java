@@ -36,6 +36,8 @@ public class TcgServiceImpl implements TcgService {
         this.versionRepository = versionRepository;
     }
 
+    // Fires at 3 AM every day
+    @Scheduled(cron="0 0 3 * * *", zone="America/New_York")
     private String getToken() {
 
         RestTemplate restTemplate = new RestTemplate();
@@ -45,7 +47,10 @@ public class TcgServiceImpl implements TcgService {
         HttpEntity<String> requestEntity = new HttpEntity<>(body);
 
         ResponseEntity<String> responseEntity = restTemplate.exchange(url, HttpMethod.POST, requestEntity, String.class);
-        return responseEntity.getBody().substring(17, 343);
+        String token = responseEntity.getBody().substring(17, 343);
+
+        this.token = token;
+        return token;
     }
 
     // TODO language support
