@@ -96,7 +96,7 @@ public class TcgServiceImpl implements TcgService {
     public List<String> fetchVersions(String cardName) {
 
         String url
-                = tcgUrlPrefix + "/v1.14.0/catalog/products?categoryId=1&productTypes=Cards&Limit=50&productName="
+                = tcgUrlPrefix + "/v1.39.0/catalog/products?categoryId=1&productTypes=Cards&Limit=50&productName="
                 + cardName;
 
         RestTemplate restTemplate = new RestTemplate();
@@ -162,7 +162,7 @@ public class TcgServiceImpl implements TcgService {
         for (int i = 0; i < 5; ++i) {
 
             int offset = i * 100;
-            String url = tcgUrlPrefix + "/v1.14.0/catalog/categories/1/groups?Limit=100" + "&offset=" + offset;
+            String url = tcgUrlPrefix + "/v1.39.0/catalog/categories/1/groups?Limit=100" + "&offset=" + offset;
 
             RestTemplate restTemplate = new RestTemplate();
             HttpHeaders headers = new HttpHeaders();
