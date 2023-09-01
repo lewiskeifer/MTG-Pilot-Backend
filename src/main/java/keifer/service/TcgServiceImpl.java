@@ -5,6 +5,7 @@ import com.google.common.collect.ImmutableMap;
 import keifer.api.model.Card;
 import keifer.persistence.VersionRepository;
 import keifer.persistence.model.VersionEntity;
+import keifer.service.model.CardCondition;
 import keifer.service.model.YAMLConfig;
 import lombok.*;
 import org.springframework.http.HttpEntity;
@@ -63,7 +64,7 @@ public class TcgServiceImpl implements TcgService {
         HttpEntity<String> requestEntity = new HttpEntity<>("parameters", headers);
 
         String url
-                = tcgUrlPrefix + "/v1.14.0/catalog/products?categoryId=1&productTypes=Cards&Limit=50&productName="
+                = tcgUrlPrefix + "/v1.39.0/catalog/products?categoryId=1&productTypes=Cards&Limit=50&includeSkus=true&productName="
                 + card.getName();
 
         try {
@@ -76,15 +77,18 @@ public class TcgServiceImpl implements TcgService {
                     continue;
                 }
 
-                for (ProductCondition productCondition : productConditionIdResult.getProductConditions()) {
+                for (Sku sku : productConditionIdResult.getSkus()) {
 
-                    String condition = card.getIsFoil() ? card.getCardCondition() + " Foil" : card.getCardCondition();
-                    if (productCondition.getName().equals(condition)) {
-                        return ImmutableMap.of("productConditionId", productCondition.getProductConditionId(), "image", productConditionIdResult.getImage());
+                    String conditionId = mapConditionId(card);
+                    String printingId = mapPrintingId(card);
+                    if (conditionId.equals(sku.getConditionId()) && printingId.equals(sku.getPrintingId())) {
+                        return ImmutableMap.of("productConditionId", sku.getSkuId(), "image", productConditionIdResult.getImageUrl());
                     }
                 }
             }
-        } catch (HttpClientErrorException e) {
+        }
+
+        catch (HttpClientErrorException e) {
             throw new ServletException("Failed to find card with name: " + card.getName() + " and set: " + card.getSet());
         }
 
@@ -184,6 +188,19 @@ public class TcgServiceImpl implements TcgService {
         }
     }
 
+    private String mapConditionId(Card card) {
+        String cardCondition = card.getCardCondition();
+        if (cardCondition.equals(CardCondition.NEAR_MINT.toString())) return "1";
+        if (cardCondition.equals(CardCondition.LIGHT_PLAY.toString())) return "2";
+        if (cardCondition.equals(CardCondition.MODERATE_PLAY.toString())) return "3";
+        if (cardCondition.equals(CardCondition.HEAVY_PLAY.toString())) return "4";
+        return "5";
+    }
+
+    private String mapPrintingId(Card card) {
+        return card.getIsFoil() ? "2" : "1";
+    }
+
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
@@ -199,23 +216,25 @@ public class TcgServiceImpl implements TcgService {
     @AllArgsConstructor
     private static class ProductConditionIdResult {
         private String productId;
-        private String productName;
-        private String image;
+        private String name;
+        private String cleanName;
+        private String imageUrl;
         private String categoryId;
         private String groupId;
         private String url;
         private String modifiedOn;
-        private List<ProductCondition> productConditions;
+        private List<Sku> skus;
     }
 
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
-    private static class ProductCondition {
-        private String productConditionId;
-        private String name; //condition
-        private String language;
-        private Boolean isFoil;
+    private static class Sku {
+        private String skuId;
+        private String productId;
+        private String languageId;
+        private String printingId;
+        private String conditionId;
     }
 
     @Data
