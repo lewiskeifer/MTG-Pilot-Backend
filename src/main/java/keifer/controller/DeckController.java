@@ -17,17 +17,17 @@ import java.util.List;
 @Api
 @RequestMapping("/manager/users")
 @RestController
-public class ManagerController {
+public class DeckController {
 
     private final UserService userService;
     private final DeckService deckService;
     private final DataMigrationService dataMigrationService;
     private final TcgService tcgService;
 
-    public ManagerController(@NonNull UserService userService,
-                             @NonNull DeckService deckService,
-                             @NonNull DataMigrationService dataMigrationService,
-                             @NonNull TcgService tcgService) {
+    public DeckController(@NonNull UserService userService,
+                          @NonNull DeckService deckService,
+                          @NonNull DataMigrationService dataMigrationService,
+                          @NonNull TcgService tcgService) {
         this.userService = userService;
         this.deckService = deckService;
         this.dataMigrationService = dataMigrationService;
@@ -129,6 +129,11 @@ public class ManagerController {
         deckService.deleteDeck(userId, deckId);
     }
 
+    @GetMapping("/{userId}/sealed/{deckId}")
+    public Deck getSealed(@PathVariable("userId") Long userId,
+                        @PathVariable("deckId") Long deckId) {
+        return deckService.getDeck(userId, deckId);
+    }
 
     @GetMapping("/migrateText")
     public void migrateText() {

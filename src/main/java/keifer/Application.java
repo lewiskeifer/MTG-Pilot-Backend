@@ -12,7 +12,7 @@ import springfox.documentation.swagger2.annotations.EnableSwagger2;
 @EnableScheduling
 @EnableSwagger2
 @SpringBootApplication
-public class FinanceManagerApplication {
+public class Application {
 
     @Bean
     public FilterRegistrationBean jwtFilter(YAMLConfig yamlConfig) {
@@ -24,7 +24,7 @@ public class FinanceManagerApplication {
     }
 
     public static void main(String[] args) {
-        SpringApplication.run(FinanceManagerApplication.class, args);
+        SpringApplication.run(Application.class, args);
     }
 
 }
