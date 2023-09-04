@@ -11,7 +11,11 @@ public interface TcgService {
 
     List<String> fetchVersions(String cardName);
 
+    Map<String, String> fetchProductIdAndUrl(String name);
+
     double fetchMarketPrice(String productConditionId);
+
+    double fetchMarketPriceByProductId(String productId);
 
     void syncVersions();
 

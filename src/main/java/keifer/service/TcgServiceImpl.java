@@ -125,6 +125,29 @@ public class TcgServiceImpl implements TcgService {
 
     @Override
     @SneakyThrows
+    public Map<String, String> fetchProductIdAndUrl(String name) {
+
+        String url
+                = tcgUrlPrefix + "/v1.39.0/catalog/products?categoryId=1&Limit=50&productName=" + name;
+
+        RestTemplate restTemplate = new RestTemplate();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+        HttpEntity<String> requestEntity = new HttpEntity<>("parameters", headers);
+
+        ResponseEntity<ProductConditionIdResponse> responseEntity = null;
+        try {
+            responseEntity = restTemplate.exchange(url, HttpMethod.GET, requestEntity, ProductConditionIdResponse.class);
+        } catch (HttpClientErrorException e) {
+            throw new ServletException("Failed to find card with name: " + name);
+        }
+
+        ProductConditionIdResult productConditionIdResult = responseEntity.getBody().getResults().get(0);
+        return ImmutableMap.of("productId", productConditionIdResult.getProductId(), "url", productConditionIdResult.getImageUrl());
+    }
+
+    @Override
+    @SneakyThrows
     public double fetchMarketPrice(String productConditionId) {
 
         if (productConditionId == null || productConditionId.equals("")) {
@@ -153,6 +176,42 @@ public class TcgServiceImpl implements TcgService {
         // TODO I believe this always returns list of size 1
         for (MarketPriceResult marketPriceResult : results) {
             return marketPriceResult.getPrice();
+        }
+
+        return 0;
+    }
+
+    @Override
+    @SneakyThrows
+    public double fetchMarketPriceByProductId(String productId) {
+
+        if (productId == null || productId.equals("")) {
+            return 0;
+        }
+
+        String url = tcgUrlPrefix + "/pricing/product/" + productId;
+
+        RestTemplate restTemplate = new RestTemplate();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+        HttpEntity<String> requestEntity = new HttpEntity<>("parameters", headers);
+
+        ResponseEntity<ProductMarketPriceResponse> responseEntity = null;
+        try {
+            responseEntity = restTemplate.exchange(url, HttpMethod.GET, requestEntity, ProductMarketPriceResponse.class);
+        }
+        catch (HttpClientErrorException e) {
+            System.out.println("Failed to find card with productConditionId: " + productId);
+            return 0;
+        }
+
+        List<ProductMarketPriceResult> results = responseEntity.getBody().getResults();
+
+        for (ProductMarketPriceResult marketPriceResult : results) {
+            if (marketPriceResult.getSubTypeName().equals("Normal")) {
+                return marketPriceResult.getMarketPrice();
+            }
         }
 
         return 0;
@@ -254,6 +313,28 @@ public class TcgServiceImpl implements TcgService {
         private Double price;
         private Double lowestRange;
         private Double highestRange;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    private static class ProductMarketPriceResponse {
+        private Boolean success;
+        private List<String> errors;
+        private List<ProductMarketPriceResult> results;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    private static class ProductMarketPriceResult {
+        private String productId;
+        private Double lowPrice;
+        private Double midPrice;
+        private Double highPrice;
+        private Double marketPrice;
+        private Double directLowPrice;
+        private String subTypeName;
     }
 
     @Data

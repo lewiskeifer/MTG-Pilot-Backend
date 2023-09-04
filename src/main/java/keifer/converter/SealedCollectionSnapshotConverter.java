@@ -1,24 +1,24 @@
 package keifer.converter;
 
-import keifer.api.model.DeckSnapshot;
-import keifer.persistence.model.DeckSnapshotEntity;
+import keifer.api.model.SealedCollectionSnapshot;
+import keifer.persistence.model.SealedCollectionSnapshotEntity;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-public class DeckSnapshotConverter {
+public class SealedCollectionSnapshotConverter {
 
-    public DeckSnapshot convert(DeckSnapshotEntity source) {
+    public SealedCollectionSnapshot convert(SealedCollectionSnapshotEntity source) {
 
-        return DeckSnapshot.builder()
+        return SealedCollectionSnapshot.builder()
                 .purchasePrice(source.getPurchasePrice())
                 .value(source.getValue())
                 .timestamp(source.getTimestamp())
                 .build();
     }
 
-    public DeckSnapshotEntity convert(DeckSnapshot source) {
+    public SealedCollectionSnapshotEntity convert(SealedCollectionSnapshot source) {
 
-        return DeckSnapshotEntity.builder()
+        return SealedCollectionSnapshotEntity.builder()
                 .purchasePrice(source.getPurchasePrice())
                 .value(source.getValue())
                 .timestamp(source.getTimestamp())

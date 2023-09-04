@@ -158,11 +158,19 @@ public class DeckServiceImpl implements DeckService {
                 throw new ServletException("User with id " + userId + " does not exist.");
             }
 
+            Integer sortOrder = deck.getSortOrder();
+            if (sortOrder == null) {
+                sortOrder = deckRepository.findMaxSortOrder();
+                if (sortOrder == null) {
+                    sortOrder = 1;
+                }
+            }
+
             deckEntity = DeckEntity.builder()
                     .name(deck.getName())
                     .deckFormat(DeckFormat.fromString(deck.getFormat()))
                     .userEntity(userEntity)
-                    .sortOrder(deck.getSortOrder() == null ? deckRepository.findMaxSortOrder() + 1 : deck.getSortOrder())
+                    .sortOrder(sortOrder)
                     .build();
         } else {
             deckEntity = fetchDeck(userId, deck.getId());
