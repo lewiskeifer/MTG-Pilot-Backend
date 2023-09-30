@@ -24,5 +24,9 @@ public interface SealedService {
 
     void createSealedCollectionSnapshot(Long userId, Long deckId);
 
+    void deleteSealed(Long userId, Long sealedId, Long cardId);
+
+    void deleteSealedCollection(Long userId, Long deckId);
+
     void refreshAllSealedCollections();
 }

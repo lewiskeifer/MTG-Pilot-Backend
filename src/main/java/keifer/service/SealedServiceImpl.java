@@ -169,6 +169,39 @@ public class SealedServiceImpl implements SealedService {
         saveSealedCollectionEntitySnapshot(sealedCollectionEntity, aggregatePurchasePrice, aggregateValue);
     }
 
+    public void deleteSealed(Long userId, Long sealedId, Long cardId) {
+
+        checkPermissions(userId);
+
+        SealedCollectionEntity sealedCollectionEntity = fetchSealedCollectionEntity(userId, sealedId);
+        int count = 0;
+        for (SealedEntity sealedEntity : sealedCollectionEntity.getSealedEntities()) {
+            if (sealedEntity.getId().equals(cardId)) {
+                sealedCollectionEntity.getSealedEntities().remove(count);
+                break;
+            }
+            count++;
+        }
+        sealedCollectionRepository.save(sealedCollectionEntity);
+
+        SealedEntity cardEntity = sealedRepository.findOneById(cardId);
+
+        // TODO check if necessary
+        sealedRepository.delete(cardEntity);
+    }
+
+    @Override
+    public void deleteSealedCollection(Long userId, Long deckId) {
+
+        checkPermissions(userId);
+
+        SealedCollectionEntity sealedCollectionEntity = fetchSealedCollectionEntity(userId, deckId);
+
+        cascadeDeckOrdering(userId, sealedCollectionEntity.getSortOrder(), sealedCollectionRepository.findMaxSortOrder());
+
+        sealedCollectionRepository.delete(sealedCollectionEntity);
+    }
+
     private void updateDeckMarketPrice(SealedCollectionEntity sealedCollectionEntity) {
 
         double aggregatePurchasePrice = 0;
