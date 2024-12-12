@@ -67,4 +67,17 @@ public class SealedController {
         sealedService.createSealedCollectionSnapshot(userId, sealedId);
     }
 
+    @DeleteMapping("/{userId}/collection/{sealedId}/sealed/{cardId}")
+    public void deleteSealed(@PathVariable("userId") Long userId,
+                           @PathVariable("sealedId") Long sealedId,
+                           @PathVariable("cardId") Long cardId) {
+        sealedService.deleteSealed(userId, sealedId, cardId);
+    }
+
+    @DeleteMapping("/{userId}/collection/{sealedId}")
+    public void deleteSealedCollection(@PathVariable("userId") Long userId,
+                           @PathVariable("sealedId") Long sealedId) {
+        sealedService.deleteSealedCollection(userId, sealedId);
+    }
+
 }
