@@ -209,7 +209,7 @@ public class TcgServiceImpl implements TcgService {
         List<ProductMarketPriceResult> results = responseEntity.getBody().getResults();
 
         for (ProductMarketPriceResult marketPriceResult : results) {
-            if (marketPriceResult.getSubTypeName().equals("Normal")) {
+            if (marketPriceResult.getSubTypeName().equals("Normal") && marketPriceResult.getMarketPrice() != null) {
                 return marketPriceResult.getMarketPrice();
             }
         }
