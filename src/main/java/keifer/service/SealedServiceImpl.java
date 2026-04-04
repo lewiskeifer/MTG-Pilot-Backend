@@ -11,6 +11,7 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.PathVariable;
 
 import javax.security.sasl.AuthenticationException;
@@ -21,6 +22,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Service
+@Transactional
 public class SealedServiceImpl implements SealedService {
 
     private final UserRepository userRepository;
@@ -149,24 +151,13 @@ public class SealedServiceImpl implements SealedService {
 
         checkPermissions(userId);
 
-        // Deck Overview
         if (sealedCollectionId == 0) {
-            List<SealedCollectionEntity> sealedCollectionEntities = sealedCollectionRepository.findByUserEntityIdOrderBySortOrderAsc(userId);
-            sealedCollectionEntities.parallelStream().forEach(this::updateDeckMarketPrice);
-
+            sealedCollectionRepository.findByUserEntityIdOrderBySortOrderAsc(userId)
+                    .parallelStream().forEach(this::updateDeckMarketPrice);
             return;
         }
 
-        SealedCollectionEntity sealedCollectionEntity = fetchSealedCollectionEntity(userId, sealedCollectionId);
-        double aggregatePurchasePrice = 0;
-        double aggregateValue = 0;
-
-        for (SealedEntity sealedEntity : sealedCollectionEntity.getSealedEntities()) {
-            aggregatePurchasePrice += sealedEntity.getPurchasePrice();
-            aggregateValue += (saveSealedEntity(sealedEntity) * sealedEntity.getQuantity());
-        }
-
-        saveSealedCollectionEntitySnapshot(sealedCollectionEntity, aggregatePurchasePrice, aggregateValue);
+        updateDeckMarketPrice(fetchSealedCollectionEntity(userId, sealedCollectionId));
     }
 
     public void deleteSealed(Long userId, Long sealedId, Long cardId) {
@@ -206,9 +197,20 @@ public class SealedServiceImpl implements SealedService {
 
         double aggregatePurchasePrice = 0;
         double aggregateValue = 0;
+        List<SealedEntity> toUpdate = new ArrayList<>();
+
         for (SealedEntity sealedEntity : sealedCollectionEntity.getSealedEntities()) {
             aggregatePurchasePrice += sealedEntity.getPurchasePrice();
-            aggregateValue += (saveSealedEntity(sealedEntity) * sealedEntity.getQuantity());
+            double newValue = tcgService.fetchMarketPriceByProductId(sealedEntity.getProductId());
+            if (newValue != 0.0) {
+                sealedEntity.setMarketPrice(newValue);
+                toUpdate.add(sealedEntity);
+            }
+            aggregateValue += sealedEntity.getMarketPrice() * sealedEntity.getQuantity();
+        }
+
+        if (!toUpdate.isEmpty()) {
+            sealedRepository.saveAll(toUpdate);
         }
 
         saveSealedCollectionEntitySnapshot(sealedCollectionEntity, aggregatePurchasePrice, aggregateValue);
@@ -276,12 +278,13 @@ public class SealedServiceImpl implements SealedService {
 
     private void cascadeDeckOrdering(Long userId, int oldOrder, int newOrder) {
         List<SealedCollectionEntity> sealedCollectionEntities = sealedCollectionRepository.findByUserEntityIdOrderBySortOrderAsc(userId);
+        List<SealedCollectionEntity> toUpdate = new ArrayList<>();
         // Sift down
         if (newOrder > oldOrder) {
             for (int i = oldOrder; i < sealedCollectionEntities.size(); ++i) {
                 SealedCollectionEntity sealedCollectionEntity = sealedCollectionEntities.get(i);
                 sealedCollectionEntity.setSortOrder(i);
-                sealedCollectionConverter.convert(sealedCollectionRepository.save(sealedCollectionEntity));
+                toUpdate.add(sealedCollectionEntity);
             }
         }
         // Sift up
@@ -289,9 +292,10 @@ public class SealedServiceImpl implements SealedService {
             for (int i = newOrder; i < oldOrder; ++i) {
                 SealedCollectionEntity sealedCollectionEntity = sealedCollectionEntities.get(i - 1);
                 sealedCollectionEntity.setSortOrder(i + 1);
-                sealedCollectionConverter.convert(sealedCollectionRepository.save(sealedCollectionEntity));
+                toUpdate.add(sealedCollectionEntity);
             }
         }
+        sealedCollectionRepository.saveAll(toUpdate);
     }
 
     private class SortByName implements Comparator<String> {
@@ -300,35 +304,13 @@ public class SealedServiceImpl implements SealedService {
         }
     }
 
-    private double saveSealedEntity(SealedEntity sealedEntity) {
-
-        double newValue = tcgService.fetchMarketPriceByProductId(sealedEntity.getProductId());
-        if (newValue != 0.0) {
-            sealedEntity.setMarketPrice(newValue);
-            sealedRepository.save(sealedEntity);
-        }
-
-        return sealedEntity.getMarketPrice();
-    }
-
     // Fires at 8 AM every day
     @Scheduled(cron="0 0 8 * * *", zone="America/New_York")
     public void refreshAllSealedCollections() {
 
         System.out.println("Scheduled task running.");
 
-        List<SealedCollectionEntity> sealedCollectionEntities = sealedCollectionRepository.findAll();
-        for (SealedCollectionEntity sealedCollectionEntity : sealedCollectionEntities) {
-
-            double aggregatePurchasePrice = 0;
-            double aggregateValue = 0;
-            for (SealedEntity sealedEntity : sealedCollectionEntity.getSealedEntities()) {
-                aggregatePurchasePrice += sealedEntity.getPurchasePrice();
-                aggregateValue += (saveSealedEntity(sealedEntity) * sealedEntity.getQuantity());
-            }
-
-            saveSealedCollectionEntitySnapshot(sealedCollectionEntity, aggregatePurchasePrice, aggregateValue);
-        }
+        sealedCollectionRepository.findAll().forEach(this::updateDeckMarketPrice);
     }
 
     private void saveSealedCollectionEntitySnapshot(SealedCollectionEntity sealedCollectionEntity, double aggregatePurchasePrice, double aggregateValue) {
