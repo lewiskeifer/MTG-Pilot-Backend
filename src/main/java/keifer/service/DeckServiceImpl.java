@@ -16,6 +16,7 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.security.sasl.AuthenticationException;
 import javax.servlet.ServletException;
@@ -25,6 +26,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Service
+@Transactional
 public class DeckServiceImpl implements DeckService {
 
     private final UserRepository userRepository;
@@ -225,21 +227,9 @@ public class DeckServiceImpl implements DeckService {
 
         checkPermissions(userId);
 
-        DeckEntity deckEntity = fetchDeck(userId, deckId);
-        int count = 0;
-        for (CardEntity cardEntity : deckEntity.getCardEntities()) {
-            if (cardEntity.getId().equals(cardId)) {
-                deckEntity.getCardEntities().remove(count);
-                break;
-            }
-            count++;
-        }
-        deckRepository.save(deckEntity);
+        fetchDeck(userId, deckId);
 
-        CardEntity cardEntity = cardRepository.findOneById(cardId);
-
-        // TODO check if necessary
-        cardRepository.delete(cardEntity);
+        cardRepository.deleteById(cardId);
     }
 
     @Override

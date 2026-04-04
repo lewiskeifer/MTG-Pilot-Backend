@@ -34,12 +34,12 @@ public class SealedCollectionEntity {
 
     @Builder.Default
     @Fetch(value = FetchMode.SUBSELECT)
-    @OneToMany(mappedBy = "sealedCollectionEntity", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "sealedCollectionEntity", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<SealedEntity> sealedEntities = new ArrayList<>();
 
     @Builder.Default
     @Fetch(value = FetchMode.SUBSELECT)
-    @OneToMany(mappedBy = "sealedCollectionEntity", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "sealedCollectionEntity", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<SealedCollectionSnapshotEntity> sealedCollectionSnapshotEntities = new ArrayList<>();
 
 }
