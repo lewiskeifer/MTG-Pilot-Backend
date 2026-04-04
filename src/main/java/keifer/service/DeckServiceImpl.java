@@ -67,12 +67,14 @@ public class DeckServiceImpl implements DeckService {
 
         checkPermissions(userId);
 
-        List<Deck> decks = new ArrayList<>();
-        decks.add(getDeckOverview(userId));
-        decks.addAll(deckRepository.findByUserEntityIdOrderBySortOrderAsc(userId).stream()
-                .map(deckConverter::convert).collect(Collectors.toList()));
+        List<Deck> convertedDecks = deckRepository.findByUserEntityIdOrderBySortOrderAsc(userId)
+                .stream().map(deckConverter::convert).collect(Collectors.toList());
 
-        return decks;
+        List<Deck> result = new ArrayList<>();
+        result.add(buildDeckOverview(convertedDecks));
+        result.addAll(convertedDecks);
+
+        return result;
     }
 
     @Override
@@ -248,10 +250,15 @@ public class DeckServiceImpl implements DeckService {
 
         checkPermissions(userId);
 
-        Deck deck = Deck.builder().id(0L).name("Deck Overview").cards(new ArrayList<>()).build();
+        List<Deck> decks = deckRepository.findByUserEntityIdOrderBySortOrderAsc(userId)
+                .stream().map(deckConverter::convert).collect(Collectors.toList());
 
-        List<Deck> decks = deckRepository.findByUserEntityIdOrderBySortOrderAsc(userId).stream().map(deckConverter::convert)
-                .collect(Collectors.toList());
+        return buildDeckOverview(decks);
+    }
+
+    private Deck buildDeckOverview(List<Deck> decks) {
+
+        Deck overview = Deck.builder().id(0L).name("Deck Overview").cards(new ArrayList<>()).build();
 
         long count = 0L;
         for (Deck newDeck : decks) {
@@ -262,7 +269,7 @@ public class DeckServiceImpl implements DeckService {
                 purchasePrice += card.getPurchasePrice();
             }
 
-            deck.getCards().add(Card.builder()
+            overview.getCards().add(Card.builder()
                     .id(count++)
                     .name(newDeck.getName())
                     .set("")
@@ -273,7 +280,7 @@ public class DeckServiceImpl implements DeckService {
                     .build());
         }
 
-        return deck;
+        return overview;
     }
 
     private DeckEntity fetchDeck(Long userId, Long deckId) {
