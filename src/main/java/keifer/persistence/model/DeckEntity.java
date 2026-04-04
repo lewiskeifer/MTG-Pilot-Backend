@@ -38,12 +38,12 @@ public class DeckEntity {
 
     @Builder.Default
     @Fetch(value = FetchMode.SUBSELECT)
-    @OneToMany(mappedBy = "deckEntity", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "deckEntity", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<CardEntity> cardEntities = new ArrayList<>();
 
     @Builder.Default
     @Fetch(value = FetchMode.SUBSELECT)
-    @OneToMany(mappedBy = "deckEntity", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "deckEntity", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<DeckSnapshotEntity> deckSnapshotEntities = new ArrayList<>();
 
 }
