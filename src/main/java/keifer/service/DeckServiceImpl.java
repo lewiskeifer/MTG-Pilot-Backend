@@ -204,24 +204,13 @@ public class DeckServiceImpl implements DeckService {
 
         checkPermissions(userId);
 
-        // Deck Overview
         if (deckId == 0) {
-            List<DeckEntity> deckEntities = deckRepository.findByUserEntityIdOrderBySortOrderAsc(userId);
-            deckEntities.parallelStream().forEach(this::updateDeckMarketPrice);
-
+            deckRepository.findByUserEntityIdOrderBySortOrderAsc(userId)
+                    .parallelStream().forEach(this::updateDeckMarketPrice);
             return;
         }
 
-        DeckEntity deckEntity = fetchDeck(userId, deckId);
-        double aggregatePurchasePrice = 0;
-        double aggregateValue = 0;
-
-        for (CardEntity cardEntity : deckEntity.getCardEntities()) {
-            aggregatePurchasePrice += cardEntity.getPurchasePrice();
-            aggregateValue += (saveCardEntity(cardEntity) * cardEntity.getQuantity());
-        }
-
-        saveDeckEntitySnapshot(deckEntity, aggregatePurchasePrice, aggregateValue);
+        updateDeckMarketPrice(fetchDeck(userId, deckId));
     }
 
     @Override
@@ -297,23 +286,23 @@ public class DeckServiceImpl implements DeckService {
 
         double aggregatePurchasePrice = 0;
         double aggregateValue = 0;
+        List<CardEntity> toUpdate = new ArrayList<>();
+
         for (CardEntity cardEntity : deckEntity.getCardEntities()) {
             aggregatePurchasePrice += cardEntity.getPurchasePrice();
-            aggregateValue += (saveCardEntity(cardEntity) * cardEntity.getQuantity());
+            double newValue = tcgService.fetchMarketPrice(cardEntity.getProductConditionId());
+            if (newValue != 0.0) {
+                cardEntity.setMarketPrice(newValue);
+                toUpdate.add(cardEntity);
+            }
+            aggregateValue += cardEntity.getMarketPrice() * cardEntity.getQuantity();
+        }
+
+        if (!toUpdate.isEmpty()) {
+            cardRepository.saveAll(toUpdate);
         }
 
         saveDeckEntitySnapshot(deckEntity, aggregatePurchasePrice, aggregateValue);
-    }
-
-    private double saveCardEntity(CardEntity cardEntity) {
-
-        double newValue = tcgService.fetchMarketPrice(cardEntity.getProductConditionId());
-        if (newValue != 0.0) {
-            cardEntity.setMarketPrice(newValue);
-            cardRepository.save(cardEntity);
-        }
-
-        return cardEntity.getMarketPrice();
     }
 
     private void saveDeckEntitySnapshot(DeckEntity deckEntity, double aggregatePurchasePrice, double aggregateValue) {
@@ -343,12 +332,13 @@ public class DeckServiceImpl implements DeckService {
 
     private void cascadeDeckOrdering(Long userId, int oldOrder, int newOrder) {
         List<DeckEntity> decks = deckRepository.findByUserEntityIdOrderBySortOrderAsc(userId);
+        List<DeckEntity> toUpdate = new ArrayList<>();
         // Sift down
         if (newOrder > oldOrder) {
             for (int i = oldOrder; i < decks.size(); ++i) {
                 DeckEntity deckEntity = decks.get(i);
                 deckEntity.setSortOrder(i);
-                deckConverter.convert(deckRepository.save(deckEntity));
+                toUpdate.add(deckEntity);
             }
         }
         // Sift up
@@ -356,9 +346,10 @@ public class DeckServiceImpl implements DeckService {
             for (int i = newOrder; i < oldOrder; ++i) {
                 DeckEntity deckEntity = decks.get(i - 1);
                 deckEntity.setSortOrder(i + 1);
-                deckConverter.convert(deckRepository.save(deckEntity));
+                toUpdate.add(deckEntity);
             }
         }
+        deckRepository.saveAll(toUpdate);
     }
 
     private class SortByName implements Comparator<String> {
@@ -393,17 +384,6 @@ public class DeckServiceImpl implements DeckService {
 
         System.out.println("Scheduled task running.");
 
-        List<DeckEntity> deckEntities = deckRepository.findAll();
-        for (DeckEntity deckEntity : deckEntities) {
-
-            double aggregatePurchasePrice = 0;
-            double aggregateValue = 0;
-            for (CardEntity cardEntity : deckEntity.getCardEntities()) {
-                aggregatePurchasePrice += cardEntity.getPurchasePrice();
-                aggregateValue += (saveCardEntity(cardEntity) * cardEntity.getQuantity());
-            }
-
-            saveDeckEntitySnapshot(deckEntity, aggregatePurchasePrice, aggregateValue);
-        }
+        deckRepository.findAll().forEach(this::updateDeckMarketPrice);
     }
 }
