@@ -66,33 +66,33 @@ Sealed collection endpoints (`/sealed/*`) do not require authentication.
 
 ### Auth
 
-| Method | Path | Body | Response |
-|---|---|---|---|
-| POST | `/register` | `User` | — |
-| POST | `/login` | `{ username, password }` | `User` (with token) |
-| POST | `/reset-password` | `{ username, email }` | `User` |
+```
+POST /register                  body: User
+POST /login                     body: { username, password }  →  User (with token)
+POST /reset-password            body: { username, email }     →  User
+```
 
 ---
 
 ### Users — `/manager/users`
 
-| Method | Path | Response |
-|---|---|---|
-| GET | `/manager/users` | `User[]` |
-| GET | `/manager/users/{userId}` | `User` |
-| PUT | `/manager/users` | `User` |
-| DELETE | `/manager/users/{userId}` | — |
+```
+GET    /manager/users                →  User[]
+GET    /manager/users/{userId}       →  User
+PUT    /manager/users                →  User
+DELETE /manager/users/{userId}
+```
 
 ---
 
 ### Decks — `/manager/users/{userId}/decks`
 
-| Method | Path | Body | Response |
-|---|---|---|---|
-| GET | `/manager/users/{userId}/decks` | — | `Deck[]` |
-| GET | `/manager/users/{userId}/decks/{deckId}` | — | `Deck` |
-| PUT | `/manager/users/{userId}/decks` | `Deck` | `Deck` |
-| DELETE | `/manager/users/{userId}/decks/{deckId}` | — | — |
+```
+GET    /manager/users/{userId}/decks             →  Deck[]
+GET    /manager/users/{userId}/decks/{deckId}    →  Deck
+PUT    /manager/users/{userId}/decks             →  Deck
+DELETE /manager/users/{userId}/decks/{deckId}
+```
 
 `GET /decks` returns a synthetic "Deck Overview" entry as the first item in the list — each card in the overview represents a single deck's aggregate value. Pass `deckId = 0` to retrieve just the overview on its own.
 
@@ -100,10 +100,10 @@ Sealed collection endpoints (`/sealed/*`) do not require authentication.
 
 ### Cards — `/manager/users/{userId}/decks/{deckId}/cards`
 
-| Method | Path | Body | Response |
-|---|---|---|---|
-| PUT | `/manager/users/{userId}/decks/{deckId}/cards` | `Card` | `Card` |
-| DELETE | `/manager/users/{userId}/decks/{deckId}/cards/{cardId}` | — | — |
+```
+PUT    /manager/users/{userId}/decks/{deckId}/cards/{cardId}    →  Card
+DELETE /manager/users/{userId}/decks/{deckId}/cards/{cardId}
+```
 
 Creating a card (`Card.id == null`) fetches the current market price and product image URL from TCG Player automatically.
 
@@ -111,10 +111,10 @@ Creating a card (`Card.id == null`) fetches the current market price and product
 
 ### Snapshots & Ordering
 
-| Method | Path | Body | Response |
-|---|---|---|---|
-| PUT | `/manager/users/{userId}/decks/{deckId}/refresh` | — | — |
-| PUT | `/manager/users/{userId}/decks/{deckId}/ordering` | `Integer` | `Deck` |
+```
+PUT /manager/users/{userId}/decks/{deckId}/refresh      (triggers price refresh + snapshot)
+PUT /manager/users/{userId}/decks/{deckId}/ordering     body: Integer  →  Deck
+```
 
 Pass `deckId = 0` to `/refresh` to refresh all decks for the user at once.
 
@@ -122,27 +122,29 @@ Pass `deckId = 0` to `/refresh` to refresh all decks for the user at once.
 
 ### Sets
 
-| Method | Path | Response |
-|---|---|---|
-| GET | `/manager/users/sets` | `String[]` (all known set names) |
-| GET | `/manager/users/sets/{cardName}` | `String[]` (sets containing that card) |
-| GET | `/manager/users/set/{groupId}` | `String` (set name for groupId) |
-| GET | `/manager/users/sets/sync` | — (re-syncs set list from TCG Player) |
+```
+GET /manager/users/sets                  →  String[] (all set names)
+GET /manager/users/sets/{cardName}       →  String[] (sets containing that card)
+GET /manager/users/set/{groupId}         →  String   (set name for groupId)
+GET /manager/users/sets/sync             (re-syncs set list from TCG Player)
+```
 
 ---
 
 ### Sealed Collections — `/sealed/{userId}`
 
-| Method | Path | Body | Response |
-|---|---|---|---|
-| GET | `/sealed/{userId}` | — | `SealedCollection[]` |
-| GET | `/sealed/{userId}/collection/{sealedId}` | — | `SealedCollection` |
-| PUT | `/sealed/{userId}` | `SealedCollection` | `SealedCollection` |
-| DELETE | `/sealed/{userId}/collection/{sealedId}` | — | — |
-| PUT | `/sealed/{userId}/collection/{sealedId}/sealed` | `Sealed` | `Sealed` |
-| DELETE | `/sealed/{userId}/collection/{sealedId}/sealed/{cardId}` | — | — |
-| PUT | `/sealed/{userId}/collection/{sealedId}/refresh` | — | — |
-| PUT | `/sealed/{userId}/collection/{sealedId}/ordering` | `Integer` | `SealedCollection` |
+```
+GET    /sealed/{userId}                                        →  SealedCollection[]
+GET    /sealed/{userId}/collection/{sealedId}                  →  SealedCollection
+PUT    /sealed/{userId}                                        →  SealedCollection
+DELETE /sealed/{userId}/collection/{sealedId}
+
+PUT    /sealed/{userId}/collection/{sealedId}/sealed           →  Sealed
+DELETE /sealed/{userId}/collection/{sealedId}/sealed/{cardId}
+
+PUT    /sealed/{userId}/collection/{sealedId}/refresh          (triggers price refresh + snapshot)
+PUT    /sealed/{userId}/collection/{sealedId}/ordering         body: Integer  →  SealedCollection
+```
 
 ---
 
