@@ -122,7 +122,7 @@ public class DeckServiceImpl implements DeckService {
 
         CardEntity cardEntity = CardEntity.builder()
                 .groupId(groupId)
-                .name(card.getName())
+                .name(toTitleCase(card.getName()))
                 .version(card.getSet())
                 .isFoil(card.getIsFoil())
                 .cardCondition(CardCondition.fromString(card.getCardCondition()))
@@ -378,6 +378,24 @@ public class DeckServiceImpl implements DeckService {
     }
 
     // Fires at 4 AM every day
+    private String toTitleCase(String name) {
+        if (name == null || name.isEmpty()) {
+            return name;
+        }
+        String[] words = name.split(" ");
+        StringBuilder result = new StringBuilder();
+        for (String word : words) {
+            if (!word.isEmpty()) {
+                if (result.length() > 0) {
+                    result.append(" ");
+                }
+                result.append(Character.toUpperCase(word.charAt(0)));
+                result.append(word.substring(1).toLowerCase());
+            }
+        }
+        return result.toString();
+    }
+
     @Scheduled(cron="0 0 4 * * *", zone="America/New_York")
     @Override
     public void refreshAllDecks() {
