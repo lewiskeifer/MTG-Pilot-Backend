@@ -43,6 +43,7 @@ public class DeckEntity {
 
     @Builder.Default
     @Fetch(value = FetchMode.SUBSELECT)
+    @OrderBy("timestamp ASC")
     @OneToMany(mappedBy = "deckEntity", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<DeckSnapshotEntity> deckSnapshotEntities = new ArrayList<>();
 

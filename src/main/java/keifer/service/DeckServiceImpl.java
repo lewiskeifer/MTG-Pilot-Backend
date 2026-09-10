@@ -20,7 +20,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.security.sasl.AuthenticationException;
 import javax.servlet.ServletException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -28,6 +30,14 @@ import java.util.stream.Collectors;
 @Service
 @Transactional
 public class DeckServiceImpl implements DeckService {
+
+    /*
+     * A snapshot belongs to a day in this zone, not in whatever zone the server happens to run
+     * in. The deployed server is on UTC, so a plain LocalDate.now() rolls the day over at 8 PM
+     * Eastern and a refresh made in the evening lands on tomorrow's date.
+     */
+    private static final String TIME_ZONE = "America/New_York";
+    private static final ZoneId ZONE_ID = ZoneId.of(TIME_ZONE);
 
     private final UserRepository userRepository;
     private final DeckRepository deckRepository;
@@ -205,12 +215,11 @@ public class DeckServiceImpl implements DeckService {
         checkPermissions(userId);
 
         if (deckId == 0) {
-            deckRepository.findByUserEntityIdOrderBySortOrderAsc(userId)
-                    .parallelStream().forEach(this::updateDeckMarketPrice);
+            updateMarketPrices(deckRepository.findByUserEntityIdOrderBySortOrderAsc(userId));
             return;
         }
 
-        updateDeckMarketPrice(fetchDeck(userId, deckId));
+        updateMarketPrices(Collections.singletonList(fetchDeck(userId, deckId)));
     }
 
     @Override
@@ -282,7 +291,37 @@ public class DeckServiceImpl implements DeckService {
         return deckEntity;
     }
 
-    private void updateDeckMarketPrice(DeckEntity deckEntity) {
+    /*
+     * Prices are fetched in parallel because the TCG calls are the slow part, but every entity
+     * read and write below stays on the calling thread. The Hibernate session backing these
+     * entities is not thread safe, and refreshing decks on a parallel stream let two threads
+     * decide independently that today had no snapshot yet, writing duplicate rows.
+     */
+    private void updateMarketPrices(List<DeckEntity> deckEntities) {
+
+        Map<String, Double> marketPrices = fetchMarketPrices(deckEntities);
+
+        for (DeckEntity deckEntity : deckEntities) {
+            updateDeckMarketPrice(deckEntity, marketPrices);
+        }
+    }
+
+    private Map<String, Double> fetchMarketPrices(List<DeckEntity> deckEntities) {
+
+        Set<String> productConditionIds = new HashSet<>();
+        for (DeckEntity deckEntity : deckEntities) {
+            for (CardEntity cardEntity : deckEntity.getCardEntities()) {
+                if (cardEntity.getProductConditionId() != null) {
+                    productConditionIds.add(cardEntity.getProductConditionId());
+                }
+            }
+        }
+
+        return productConditionIds.parallelStream()
+                .collect(Collectors.toConcurrentMap(id -> id, tcgService::fetchMarketPrice));
+    }
+
+    private void updateDeckMarketPrice(DeckEntity deckEntity, Map<String, Double> marketPrices) {
 
         double aggregatePurchasePrice = 0;
         double aggregateValue = 0;
@@ -290,7 +329,7 @@ public class DeckServiceImpl implements DeckService {
 
         for (CardEntity cardEntity : deckEntity.getCardEntities()) {
             aggregatePurchasePrice += cardEntity.getPurchasePrice();
-            double newValue = tcgService.fetchMarketPrice(cardEntity.getProductConditionId());
+            double newValue = marketPrices.getOrDefault(cardEntity.getProductConditionId(), 0.0);
             if (newValue != 0.0) {
                 cardEntity.setMarketPrice(newValue);
                 toUpdate.add(cardEntity);
@@ -307,22 +346,30 @@ public class DeckServiceImpl implements DeckService {
 
     private void saveDeckEntitySnapshot(DeckEntity deckEntity, double aggregatePurchasePrice, double aggregateValue) {
 
-        LocalDateTime localDateTime = LocalDateTime.now();
+        LocalDate today = LocalDate.now(ZONE_ID);
 
-        List<DeckSnapshotEntity> deckSnapshotEntities = deckEntity.getDeckSnapshotEntities();
+        /*
+         * Search the whole list for today rather than trusting the last element. Comparing only
+         * the tail, and by day of year rather than by date, meant a stale or out of order read
+         * appended a second row for the day instead of overwriting it, and the dashboard lines up
+         * each deck's series by date.
+         */
+        DeckSnapshotEntity todaysSnapshot = deckEntity.getDeckSnapshotEntities().stream()
+                .filter(snapshot -> today.equals(snapshot.getTimestamp().toLocalDate()))
+                .findFirst()
+                .orElse(null);
 
-        if (!deckSnapshotEntities.isEmpty() && localDateTime.getDayOfYear() ==
-                deckSnapshotEntities.get(deckEntity.getDeckSnapshotEntities().size() - 1).getTimestamp().getDayOfYear()) {
+        if (todaysSnapshot != null) {
 
             System.out.println("Snapshot found for today, overwriting.");
 
-            deckEntity.getDeckSnapshotEntities().get(deckSnapshotEntities.size() - 1).setPurchasePrice(aggregatePurchasePrice);
-            deckEntity.getDeckSnapshotEntities().get(deckSnapshotEntities.size() - 1).setValue(aggregateValue);
+            todaysSnapshot.setPurchasePrice(aggregatePurchasePrice);
+            todaysSnapshot.setValue(aggregateValue);
         } else {
             deckEntity.getDeckSnapshotEntities().add(DeckSnapshotEntity.builder()
                     .purchasePrice(aggregatePurchasePrice)
                     .value(aggregateValue)
-                    .timestamp(LocalDateTime.now())
+                    .timestamp(LocalDateTime.now(ZONE_ID))
                     .deckEntity(deckEntity)
                     .build());
         }
@@ -396,12 +443,12 @@ public class DeckServiceImpl implements DeckService {
         return result.toString();
     }
 
-    @Scheduled(cron="0 0 4 * * *", zone="America/New_York")
+    @Scheduled(cron="0 0 4 * * *", zone=TIME_ZONE)
     @Override
     public void refreshAllDecks() {
 
         System.out.println("Scheduled task running.");
 
-        deckRepository.findAll().forEach(this::updateDeckMarketPrice);
+        updateMarketPrices(deckRepository.findAll());
     }
 }
