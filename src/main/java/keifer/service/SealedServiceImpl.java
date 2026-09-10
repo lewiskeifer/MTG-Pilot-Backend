@@ -16,7 +16,9 @@ import org.springframework.web.bind.annotation.PathVariable;
 
 import javax.security.sasl.AuthenticationException;
 import javax.servlet.ServletException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -24,6 +26,14 @@ import java.util.stream.Collectors;
 @Service
 @Transactional
 public class SealedServiceImpl implements SealedService {
+
+    /*
+     * A snapshot belongs to a day in this zone, not in whatever zone the server happens to run
+     * in. The deployed server is on UTC, so a plain LocalDate.now() rolls the day over at 8 PM
+     * Eastern and a refresh made in the evening lands on tomorrow's date.
+     */
+    private static final String TIME_ZONE = "America/New_York";
+    private static final ZoneId ZONE_ID = ZoneId.of(TIME_ZONE);
 
     private final UserRepository userRepository;
     private final SealedCollectionRepository sealedCollectionRepository;
@@ -152,12 +162,11 @@ public class SealedServiceImpl implements SealedService {
         checkPermissions(userId);
 
         if (sealedCollectionId == 0) {
-            sealedCollectionRepository.findByUserEntityIdOrderBySortOrderAsc(userId)
-                    .parallelStream().forEach(this::updateDeckMarketPrice);
+            updateMarketPrices(sealedCollectionRepository.findByUserEntityIdOrderBySortOrderAsc(userId));
             return;
         }
 
-        updateDeckMarketPrice(fetchSealedCollectionEntity(userId, sealedCollectionId));
+        updateMarketPrices(Collections.singletonList(fetchSealedCollectionEntity(userId, sealedCollectionId)));
     }
 
     public void deleteSealed(Long userId, Long sealedId, Long cardId) {
@@ -193,7 +202,37 @@ public class SealedServiceImpl implements SealedService {
         sealedCollectionRepository.delete(sealedCollectionEntity);
     }
 
-    private void updateDeckMarketPrice(SealedCollectionEntity sealedCollectionEntity) {
+    /*
+     * Prices are fetched in parallel because the TCG calls are the slow part, but every entity
+     * read and write below stays on the calling thread. The Hibernate session backing these
+     * entities is not thread safe, and refreshing collections on a parallel stream let two
+     * threads decide independently that today had no snapshot yet, writing duplicate rows.
+     */
+    private void updateMarketPrices(List<SealedCollectionEntity> sealedCollectionEntities) {
+
+        Map<String, Double> marketPrices = fetchMarketPrices(sealedCollectionEntities);
+
+        for (SealedCollectionEntity sealedCollectionEntity : sealedCollectionEntities) {
+            updateDeckMarketPrice(sealedCollectionEntity, marketPrices);
+        }
+    }
+
+    private Map<String, Double> fetchMarketPrices(List<SealedCollectionEntity> sealedCollectionEntities) {
+
+        Set<String> productIds = new HashSet<>();
+        for (SealedCollectionEntity sealedCollectionEntity : sealedCollectionEntities) {
+            for (SealedEntity sealedEntity : sealedCollectionEntity.getSealedEntities()) {
+                if (sealedEntity.getProductId() != null) {
+                    productIds.add(sealedEntity.getProductId());
+                }
+            }
+        }
+
+        return productIds.parallelStream()
+                .collect(Collectors.toConcurrentMap(productId -> productId, tcgService::fetchMarketPriceByProductId));
+    }
+
+    private void updateDeckMarketPrice(SealedCollectionEntity sealedCollectionEntity, Map<String, Double> marketPrices) {
 
         double aggregatePurchasePrice = 0;
         double aggregateValue = 0;
@@ -201,7 +240,7 @@ public class SealedServiceImpl implements SealedService {
 
         for (SealedEntity sealedEntity : sealedCollectionEntity.getSealedEntities()) {
             aggregatePurchasePrice += sealedEntity.getPurchasePrice();
-            double newValue = tcgService.fetchMarketPriceByProductId(sealedEntity.getProductId());
+            double newValue = marketPrices.getOrDefault(sealedEntity.getProductId(), 0.0);
             if (newValue != 0.0) {
                 sealedEntity.setMarketPrice(newValue);
                 toUpdate.add(sealedEntity);
@@ -305,32 +344,40 @@ public class SealedServiceImpl implements SealedService {
     }
 
     // Fires at 8 AM every day
-    @Scheduled(cron="0 0 8 * * *", zone="America/New_York")
+    @Scheduled(cron="0 0 8 * * *", zone=TIME_ZONE)
     public void refreshAllSealedCollections() {
 
         System.out.println("Scheduled task running.");
 
-        sealedCollectionRepository.findAll().forEach(this::updateDeckMarketPrice);
+        updateMarketPrices(sealedCollectionRepository.findAll());
     }
 
     private void saveSealedCollectionEntitySnapshot(SealedCollectionEntity sealedCollectionEntity, double aggregatePurchasePrice, double aggregateValue) {
 
-        LocalDateTime localDateTime = LocalDateTime.now();
+        LocalDate today = LocalDate.now(ZONE_ID);
 
-        List<SealedCollectionSnapshotEntity> sealedCollectionSnapshotEntities = sealedCollectionEntity.getSealedCollectionSnapshotEntities();
+        /*
+         * Search the whole list for today rather than trusting the last element. Comparing only
+         * the tail, and by day of year rather than by date, meant a stale or out of order read
+         * appended a second row for the day instead of overwriting it, and the dashboard lines up
+         * each collection's series by date.
+         */
+        SealedCollectionSnapshotEntity todaysSnapshot = sealedCollectionEntity.getSealedCollectionSnapshotEntities().stream()
+                .filter(snapshot -> today.equals(snapshot.getTimestamp().toLocalDate()))
+                .findFirst()
+                .orElse(null);
 
-        if (!sealedCollectionSnapshotEntities.isEmpty() && localDateTime.getDayOfYear() ==
-                sealedCollectionSnapshotEntities.get(sealedCollectionEntity.getSealedCollectionSnapshotEntities().size() - 1).getTimestamp().getDayOfYear()) {
+        if (todaysSnapshot != null) {
 
             System.out.println("Snapshot found for today, overwriting.");
 
-            sealedCollectionEntity.getSealedCollectionSnapshotEntities().get(sealedCollectionSnapshotEntities.size() - 1).setPurchasePrice(aggregatePurchasePrice);
-            sealedCollectionEntity.getSealedCollectionSnapshotEntities().get(sealedCollectionSnapshotEntities.size() - 1).setValue(aggregateValue);
+            todaysSnapshot.setPurchasePrice(aggregatePurchasePrice);
+            todaysSnapshot.setValue(aggregateValue);
         } else {
             sealedCollectionEntity.getSealedCollectionSnapshotEntities().add(SealedCollectionSnapshotEntity.builder()
                     .purchasePrice(aggregatePurchasePrice)
                     .value(aggregateValue)
-                    .timestamp(LocalDateTime.now())
+                    .timestamp(LocalDateTime.now(ZONE_ID))
                     .sealedCollectionEntity(sealedCollectionEntity)
                     .build());
         }

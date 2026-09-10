@@ -39,6 +39,7 @@ public class SealedCollectionEntity {
 
     @Builder.Default
     @Fetch(value = FetchMode.SUBSELECT)
+    @OrderBy("timestamp ASC")
     @OneToMany(mappedBy = "sealedCollectionEntity", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<SealedCollectionSnapshotEntity> sealedCollectionSnapshotEntities = new ArrayList<>();
 
