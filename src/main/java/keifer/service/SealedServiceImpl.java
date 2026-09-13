@@ -6,6 +6,8 @@ import keifer.converter.SealedCollectionConverter;
 import keifer.converter.SealedConverter;
 import keifer.persistence.*;
 import keifer.persistence.model.*;
+import keifer.service.model.PriceBaselines;
+import keifer.service.model.PriceKind;
 import lombok.NonNull;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -41,6 +43,7 @@ public class SealedServiceImpl implements SealedService {
     private final SealedRepository sealedRepository;
     private final SealedConverter sealedConverter;
     private final TcgService tcgService;
+    private final PriceHistoryService priceHistoryService;
     private final TokenParsingServiceImpl tokenParsingServiceImpl;
 
     public SealedServiceImpl(@NonNull UserRepository userRepository,
@@ -49,6 +52,7 @@ public class SealedServiceImpl implements SealedService {
                              @NonNull SealedRepository sealedRepository,
                              @NonNull SealedConverter sealedConverter,
                              @NonNull TcgService tcgService,
+                             @NonNull PriceHistoryService priceHistoryService,
                              @NonNull TokenParsingServiceImpl tokenParsingServiceImpl) {
         this.userRepository = userRepository;
         this.sealedCollectionRepository = sealedCollectionRepository;
@@ -56,6 +60,7 @@ public class SealedServiceImpl implements SealedService {
         this.sealedRepository = sealedRepository;
         this.sealedConverter = sealedConverter;
         this.tcgService = tcgService;
+        this.priceHistoryService = priceHistoryService;
         this.tokenParsingServiceImpl = tokenParsingServiceImpl;
     }
 
@@ -63,10 +68,20 @@ public class SealedServiceImpl implements SealedService {
 
         checkPermissions(userId);
 
+        /*
+         * As on the deck side: the dashboard ranks individual products over its selected window,
+         * so the prices recorded for them ride along with the products themselves.
+         */
+        PriceBaselines baselines = priceHistoryService.baselines(PriceKind.SEALED);
+
         List<SealedCollection> sealedCollections = new ArrayList<>();
         sealedCollections.add(getSealedCollectionOverview(userId));
         sealedCollections.addAll(sealedCollectionRepository.findByUserEntityIdOrderBySortOrderAsc(userId).stream()
-                .map(sealedCollectionConverter::convert).collect(Collectors.toList()));
+                .map(entity -> sealedCollectionConverter.convert(entity, baselines.getPrices()))
+                .collect(Collectors.toList()));
+
+        Map<String, String> baselineDates = baselines.datesAsText();
+        sealedCollections.forEach(collection -> collection.setBaselineDates(baselineDates));
 
         return sealedCollections;
     }
@@ -211,6 +226,9 @@ public class SealedServiceImpl implements SealedService {
     private void updateMarketPrices(List<SealedCollectionEntity> sealedCollectionEntities) {
 
         Map<String, Double> marketPrices = fetchMarketPrices(sealedCollectionEntities);
+
+        // Today's reading for every product touched, so one box can be measured over a window
+        priceHistoryService.record(PriceKind.SEALED, marketPrices);
 
         for (SealedCollectionEntity sealedCollectionEntity : sealedCollectionEntities) {
             updateDeckMarketPrice(sealedCollectionEntity, marketPrices);

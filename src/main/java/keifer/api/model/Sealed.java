@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.Map;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -22,5 +24,8 @@ public class Sealed {
     private String url;
 
     private Double marketPrice;
+
+    /** As on a card: one product's price at the start of each range, keyed by day count. */
+    private Map<String, Double> baselinePrices;
 
 }
