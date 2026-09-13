@@ -11,6 +11,8 @@ import keifer.persistence.VersionRepository;
 import keifer.persistence.model.*;
 import keifer.service.model.CardCondition;
 import keifer.service.model.DeckFormat;
+import keifer.service.model.PriceBaselines;
+import keifer.service.model.PriceKind;
 import lombok.NonNull;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -46,6 +48,7 @@ public class DeckServiceImpl implements DeckService {
     private final CardRepository cardRepository;
     private final CardConverter cardConverter;
     private final TcgService tcgService;
+    private final PriceHistoryService priceHistoryService;
     private final TokenParsingServiceImpl tokenParsingServiceImpl;
 
     public DeckServiceImpl(@NonNull UserRepository userRepository,
@@ -55,6 +58,7 @@ public class DeckServiceImpl implements DeckService {
                            @NonNull CardRepository cardRepository,
                            @NonNull CardConverter cardConverter,
                            @NonNull TcgService tcgService,
+                           @NonNull PriceHistoryService priceHistoryService,
                            @NonNull TokenParsingServiceImpl tokenParsingServiceImpl) {
         this.userRepository = userRepository;
         this.deckRepository = deckRepository;
@@ -63,6 +67,7 @@ public class DeckServiceImpl implements DeckService {
         this.cardRepository = cardRepository;
         this.cardConverter = cardConverter;
         this.tcgService = tcgService;
+        this.priceHistoryService = priceHistoryService;
         this.tokenParsingServiceImpl = tokenParsingServiceImpl;
     }
 
@@ -77,12 +82,23 @@ public class DeckServiceImpl implements DeckService {
 
         checkPermissions(userId);
 
+        /*
+         * The only read that carries per-card price history: the dashboard ranks individual cards
+         * over the window its range buttons are set to, and gets the figures it needs to do that
+         * from the cards it already downloads rather than from a second round trip.
+         */
+        PriceBaselines baselines = priceHistoryService.baselines(PriceKind.CARD);
+
         List<Deck> convertedDecks = deckRepository.findByUserEntityIdOrderBySortOrderAsc(userId)
-                .stream().map(deckConverter::convert).collect(Collectors.toList());
+                .stream().map(deckEntity -> deckConverter.convert(deckEntity, baselines.getPrices()))
+                .collect(Collectors.toList());
 
         List<Deck> result = new ArrayList<>();
         result.add(buildDeckOverview(convertedDecks));
         result.addAll(convertedDecks);
+
+        Map<String, String> baselineDates = baselines.datesAsText();
+        result.forEach(deck -> deck.setBaselineDates(baselineDates));
 
         return result;
     }
@@ -300,6 +316,10 @@ public class DeckServiceImpl implements DeckService {
     private void updateMarketPrices(List<DeckEntity> deckEntities) {
 
         Map<String, Double> marketPrices = fetchMarketPrices(deckEntities);
+
+        // Today's reading for every printing touched, kept so a card can be measured over a
+        // window and not just against what it cost
+        priceHistoryService.record(PriceKind.CARD, marketPrices);
 
         for (DeckEntity deckEntity : deckEntities) {
             updateDeckMarketPrice(deckEntity, marketPrices);

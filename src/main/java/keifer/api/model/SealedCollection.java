@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
+import java.util.Map;
 
 @Data
 @Builder
@@ -22,5 +23,8 @@ public class SealedCollection {
     private List<Sealed> sealed;
 
     private List<SealedCollectionSnapshot> sealedCollectionSnapshots;
+
+    /** As on a deck: the day each of the products' baseline prices was read. */
+    private Map<String, String> baselineDates;
 
 }
