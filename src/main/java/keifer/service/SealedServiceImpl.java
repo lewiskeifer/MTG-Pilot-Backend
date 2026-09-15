@@ -88,7 +88,9 @@ public class SealedServiceImpl implements SealedService {
 
     public SealedCollection getSealedCollection(@PathVariable("userId") Long userId, @PathVariable("sealedId") Long sealedId) {
 
-        return sealedCollectionConverter.convert(sealedCollectionRepository.findOneByUserEntityIdAndId(userId, sealedId));
+        // Through the same lookup as everything else here, so an id that is not there answers
+        // 404 rather than handing a null to the converter and dying inside it
+        return sealedCollectionConverter.convert(fetchSealedCollectionEntity(userId, sealedId));
     }
 
     public SealedCollection saveSealedCollection(Long userId, SealedCollection sealedCollection) throws ServletException {
@@ -136,7 +138,7 @@ public class SealedServiceImpl implements SealedService {
         SealedCollectionEntity sealedCollectionEntity = fetchSealedCollectionEntity(userId, deckId);
 
         Map<String, String> results = tcgService.fetchProductIdAndUrl(sealed.getName());
-        double marketPrice = tcgService.fetchMarketPriceByProductId(results.get("productId"));
+        double marketPrice = tcgService.fetchMarketPriceByProductId(results.get("productId"), sealed.getName());
 
         SealedEntity sealedEntity = SealedEntity.builder()
                 .name(sealed.getName())
@@ -237,17 +239,20 @@ public class SealedServiceImpl implements SealedService {
 
     private Map<String, Double> fetchMarketPrices(List<SealedCollectionEntity> sealedCollectionEntities) {
 
-        Set<String> productIds = new HashSet<>();
+        // One entry per product, against its name: deduplicated as before, but a product that
+        // fails to price is named in the log rather than left as a bare id
+        Map<String, String> byProductId = new HashMap<>();
         for (SealedCollectionEntity sealedCollectionEntity : sealedCollectionEntities) {
             for (SealedEntity sealedEntity : sealedCollectionEntity.getSealedEntities()) {
                 if (sealedEntity.getProductId() != null) {
-                    productIds.add(sealedEntity.getProductId());
+                    byProductId.putIfAbsent(sealedEntity.getProductId(), sealedEntity.getName());
                 }
             }
         }
 
-        return productIds.parallelStream()
-                .collect(Collectors.toConcurrentMap(productId -> productId, tcgService::fetchMarketPriceByProductId));
+        return byProductId.entrySet().parallelStream()
+                .collect(Collectors.toConcurrentMap(Map.Entry::getKey,
+                        entry -> tcgService.fetchMarketPriceByProductId(entry.getKey(), entry.getValue())));
     }
 
     private void updateDeckMarketPrice(SealedCollectionEntity sealedCollectionEntity, Map<String, Double> marketPrices) {
@@ -327,7 +332,8 @@ public class SealedServiceImpl implements SealedService {
 
         SealedCollectionEntity sealedCollectionEntity = sealedCollectionRepository.findOneByUserEntityIdAndId(userId, deckId);
         if (sealedCollectionEntity == null) {
-            throw new Error("Deck with id: " + deckId + " not found.");
+            // Named for what it is: this side holds collections, and the message said "deck"
+            throw new NotFoundException("Sealed collection with id: " + deckId + " not found.");
         }
 
         return sealedCollectionEntity;
@@ -365,9 +371,21 @@ public class SealedServiceImpl implements SealedService {
     @Scheduled(cron="0 0 8 * * *", zone=TIME_ZONE)
     public void refreshAllSealedCollections() {
 
-        System.out.println("Scheduled task running.");
+        List<SealedCollectionEntity> sealedCollectionEntities = sealedCollectionRepository.findAll();
+        long start = System.currentTimeMillis();
 
-        updateMarketPrices(sealedCollectionRepository.findAll());
+        // Named, so this is tellable apart from the deck refresh four hours earlier
+        log.info("Nightly sealed refresh starting for {} collections", sealedCollectionEntities.size());
+
+        updateMarketPrices(sealedCollectionEntities);
+
+        log.info("Nightly sealed refresh finished for {} collections in {} ms",
+                sealedCollectionEntities.size(), System.currentTimeMillis() - start);
+    }
+
+    /** Money in a log line, without the trailing noise a raw double carries. */
+    private static String money(double value) {
+        return String.format("%.2f", value);
     }
 
     private void saveSealedCollectionEntitySnapshot(SealedCollectionEntity sealedCollectionEntity, double aggregatePurchasePrice, double aggregateValue) {
@@ -387,11 +405,20 @@ public class SealedServiceImpl implements SealedService {
 
         if (todaysSnapshot != null) {
 
-            System.out.println("Snapshot found for today, overwriting.");
+            // As on the deck side: which collection, which day, and what actually changed
+            log.info("Collection {} ({}): overwriting the snapshot for {} - value {} -> {}, purchase price {} -> {}",
+                    sealedCollectionEntity.getName(), sealedCollectionEntity.getId(), today,
+                    money(todaysSnapshot.getValue()), money(aggregateValue),
+                    money(todaysSnapshot.getPurchasePrice()), money(aggregatePurchasePrice));
 
             todaysSnapshot.setPurchasePrice(aggregatePurchasePrice);
             todaysSnapshot.setValue(aggregateValue);
         } else {
+
+            log.debug("Collection {} ({}): first snapshot for {} - value {}, purchase price {}",
+                    sealedCollectionEntity.getName(), sealedCollectionEntity.getId(), today,
+                    money(aggregateValue), money(aggregatePurchasePrice));
+
             sealedCollectionEntity.getSealedCollectionSnapshotEntities().add(SealedCollectionSnapshotEntity.builder()
                     .purchasePrice(aggregatePurchasePrice)
                     .value(aggregateValue)

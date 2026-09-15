@@ -12,6 +12,7 @@ import keifer.persistence.model.UserEntity;
 import keifer.service.model.CardCondition;
 import keifer.service.model.DeckFormat;
 import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -33,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
+@Slf4j
 @Service
 public class DataMigrationServiceImpl implements DataMigrationService {
 
@@ -216,7 +218,8 @@ public class DataMigrationServiceImpl implements DataMigrationService {
                 Map<String, String> returnData = tcgService.fetchProductConditionIdAndUrl(cardConverter.convert(cardEntity));
                 cardEntity.setProductConditionId(returnData.get("productConditionId"));
                 cardEntity.setUrl(returnData.get("image"));
-                cardEntity.setMarketPrice(tcgService.fetchMarketPrice(cardEntity.getProductConditionId()));
+                cardEntity.setMarketPrice(
+                        tcgService.fetchMarketPrice(cardEntity.getProductConditionId(), cardEntity.describe()));
 
                 aggregatePurchasePrice += cardEntity.getPurchasePrice();
                 aggregateValue += (cardEntity.getMarketPrice() * cardEntity.getQuantity());
@@ -239,13 +242,17 @@ public class DataMigrationServiceImpl implements DataMigrationService {
     @Override
     public void migrateJsonData() {
 
-        Object obj = null;
+        Object obj;
         try {
             obj = new JSONParser().parse(new FileReader(ResourceUtils.getFile("classpath:JSON.json")));
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (ParseException e) {
-            e.printStackTrace();
+        } catch (IOException | ParseException e) {
+            /*
+             * Printing the trace and carrying on left obj null, so the real complaint - the file
+             * is missing, or is not the JSON this expects - arrived two lines later as a null
+             * pointer on the cast below, with the cause already scrolled past on stderr.
+             */
+            log.error("Could not read classpath:JSON.json, so there is nothing to migrate", e);
+            throw new IllegalStateException("Could not read classpath:JSON.json", e);
         }
 
         JSONArray ja = (JSONArray) obj;
@@ -378,7 +385,7 @@ public class DataMigrationServiceImpl implements DataMigrationService {
         try (Stream<Path> paths = Files.walk(Paths.get(path))) {
             paths.filter(Files::isRegularFile).forEach(this::readFile);
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("Could not walk migration folder {}", path, e);
         }
     }
 
@@ -395,8 +402,9 @@ public class DataMigrationServiceImpl implements DataMigrationService {
             reader.close();
             data.add(records);
         } catch (Exception e) {
-            System.err.format("Exception occurred trying to read '%s'.", path.toString());
-            e.printStackTrace();
+            // Stack trace to the log rather than to stderr, where it lands outside the log file
+            // and arrives detached from the line naming the file that failed
+            log.error("Could not read migration file {}", path, e);
         }
     }
 

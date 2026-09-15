@@ -13,9 +13,14 @@ public interface TcgService {
 
     Map<String, String> fetchProductIdAndUrl(String name);
 
-    double fetchMarketPrice(String productConditionId);
+    /**
+     * @param description names the card for the log, since a bare product-condition id says
+     *                    nothing about which card in which set failed to price.
+     */
+    double fetchMarketPrice(String productConditionId, String description);
 
-    double fetchMarketPriceByProductId(String productId);
+    /** @param description names the product, for the same reason. */
+    double fetchMarketPriceByProductId(String productId, String description);
 
     void syncVersions();
 

@@ -144,7 +144,8 @@ public class DeckServiceImpl implements DeckService {
         card.setGroupId(groupId);
 
         Map<String, String> results = tcgService.fetchProductConditionIdAndUrl(card);
-        double marketPrice = tcgService.fetchMarketPrice(results.get("productConditionId"));
+        double marketPrice = tcgService.fetchMarketPrice(results.get("productConditionId"),
+                CardEntity.describe(card.getName(), card.getSet(), card.getCardCondition(), card.getIsFoil()));
 
         CardEntity cardEntity = CardEntity.builder()
                 .groupId(groupId)
@@ -301,7 +302,7 @@ public class DeckServiceImpl implements DeckService {
 
         DeckEntity deckEntity = deckRepository.findOneByUserEntityIdAndId(userId, deckId);
         if (deckEntity == null) {
-            throw new Error("Deck with id: " + deckId + " not found.");
+            throw new NotFoundException("Deck with id: " + deckId + " not found.");
         }
 
         return deckEntity;
@@ -328,17 +329,23 @@ public class DeckServiceImpl implements DeckService {
 
     private Map<String, Double> fetchMarketPrices(List<DeckEntity> deckEntities) {
 
-        Set<String> productConditionIds = new HashSet<>();
+        /*
+         * One entry per printing, against a card that holds it. Still deduplicated - the same
+         * printing sits in several decks and is worth one call - but carrying a name, because a
+         * bare product-condition id in a log line names nothing anyone can go and fix.
+         */
+        Map<String, String> byProductConditionId = new HashMap<>();
         for (DeckEntity deckEntity : deckEntities) {
             for (CardEntity cardEntity : deckEntity.getCardEntities()) {
                 if (cardEntity.getProductConditionId() != null) {
-                    productConditionIds.add(cardEntity.getProductConditionId());
+                    byProductConditionId.putIfAbsent(cardEntity.getProductConditionId(), cardEntity.describe());
                 }
             }
         }
 
-        return productConditionIds.parallelStream()
-                .collect(Collectors.toConcurrentMap(id -> id, tcgService::fetchMarketPrice));
+        return byProductConditionId.entrySet().parallelStream()
+                .collect(Collectors.toConcurrentMap(Map.Entry::getKey,
+                        entry -> tcgService.fetchMarketPrice(entry.getKey(), entry.getValue())));
     }
 
     private void updateDeckMarketPrice(DeckEntity deckEntity, Map<String, Double> marketPrices) {
@@ -381,11 +388,24 @@ public class DeckServiceImpl implements DeckService {
 
         if (todaysSnapshot != null) {
 
-            System.out.println("Snapshot found for today, overwriting.");
+            /*
+             * Says which deck, which day, and what the figures were before and after. The reason
+             * to read this line at all is to see whether a second refresh actually moved
+             * anything, and "snapshot found for today, overwriting" answered none of that.
+             */
+            log.info("Deck {} ({}): overwriting the snapshot for {} - value {} -> {}, purchase price {} -> {}",
+                    deckEntity.getName(), deckEntity.getId(), today,
+                    money(todaysSnapshot.getValue()), money(aggregateValue),
+                    money(todaysSnapshot.getPurchasePrice()), money(aggregatePurchasePrice));
 
             todaysSnapshot.setPurchasePrice(aggregatePurchasePrice);
             todaysSnapshot.setValue(aggregateValue);
         } else {
+
+            log.debug("Deck {} ({}): first snapshot for {} - value {}, purchase price {}",
+                    deckEntity.getName(), deckEntity.getId(), today,
+                    money(aggregateValue), money(aggregatePurchasePrice));
+
             deckEntity.getDeckSnapshotEntities().add(DeckSnapshotEntity.builder()
                     .purchasePrice(aggregatePurchasePrice)
                     .value(aggregateValue)
@@ -467,8 +487,21 @@ public class DeckServiceImpl implements DeckService {
     @Override
     public void refreshAllDecks() {
 
-        System.out.println("Scheduled task running.");
+        List<DeckEntity> deckEntities = deckRepository.findAll();
+        long start = System.currentTimeMillis();
 
-        updateMarketPrices(deckRepository.findAll());
+        // Named, counted and timed: this walks every deck in the database against a rate limited
+        // API, and "Scheduled task running." said neither which task nor how it went
+        log.info("Nightly deck refresh starting for {} decks", deckEntities.size());
+
+        updateMarketPrices(deckEntities);
+
+        log.info("Nightly deck refresh finished for {} decks in {} ms",
+                deckEntities.size(), System.currentTimeMillis() - start);
+    }
+
+    /** Money in a log line, without the trailing noise a raw double carries. */
+    private static String money(double value) {
+        return String.format("%.2f", value);
     }
 }
