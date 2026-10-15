@@ -13,6 +13,8 @@ import keifer.service.model.CardCondition;
 import keifer.service.model.DeckFormat;
 import keifer.service.model.PriceBaselines;
 import keifer.service.model.PriceKind;
+import keifer.service.scryfall.ScryfallPriceRequest;
+import keifer.service.scryfall.ScryfallService;
 import lombok.NonNull;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -48,6 +50,7 @@ public class DeckServiceImpl implements DeckService {
     private final CardRepository cardRepository;
     private final CardConverter cardConverter;
     private final TcgService tcgService;
+    private final ScryfallService scryfallService;
     private final PriceHistoryService priceHistoryService;
     private final TokenParsingServiceImpl tokenParsingServiceImpl;
 
@@ -58,6 +61,7 @@ public class DeckServiceImpl implements DeckService {
                            @NonNull CardRepository cardRepository,
                            @NonNull CardConverter cardConverter,
                            @NonNull TcgService tcgService,
+                           @NonNull ScryfallService scryfallService,
                            @NonNull PriceHistoryService priceHistoryService,
                            @NonNull TokenParsingServiceImpl tokenParsingServiceImpl) {
         this.userRepository = userRepository;
@@ -67,6 +71,7 @@ public class DeckServiceImpl implements DeckService {
         this.cardRepository = cardRepository;
         this.cardConverter = cardConverter;
         this.tcgService = tcgService;
+        this.scryfallService = scryfallService;
         this.priceHistoryService = priceHistoryService;
         this.tokenParsingServiceImpl = tokenParsingServiceImpl;
     }
@@ -327,25 +332,39 @@ public class DeckServiceImpl implements DeckService {
         }
     }
 
+    /*
+     * Prices come from Scryfall now that TCGplayer's are closed to us. They are still filed
+     * under each card's product-condition id, which Scryfall has never heard of and never sees:
+     * it is only a key here, and keeping it means the snapshots and the price history carry on
+     * in the same terms they always have, across a change of supplier.
+     *
+     * Scryfall is asked for every card at once rather than one at a time, so this no longer
+     * needs a parallel stream to be quick - it is forty requests where it used to be thousands.
+     */
     private Map<String, Double> fetchMarketPrices(List<DeckEntity> deckEntities) {
 
-        /*
-         * One entry per printing, against a card that holds it. Still deduplicated - the same
-         * printing sits in several decks and is worth one call - but carrying a name, because a
-         * bare product-condition id in a log line names nothing anyone can go and fix.
-         */
-        Map<String, String> byProductConditionId = new HashMap<>();
+        Map<String, ScryfallPriceRequest> byProductConditionId = new HashMap<>();
+
         for (DeckEntity deckEntity : deckEntities) {
             for (CardEntity cardEntity : deckEntity.getCardEntities()) {
-                if (cardEntity.getProductConditionId() != null) {
-                    byProductConditionId.putIfAbsent(cardEntity.getProductConditionId(), cardEntity.describe());
+
+                if (cardEntity.getProductConditionId() == null) {
+                    continue;
                 }
+
+                // The same printing in the same condition sits in several decks and is one ask
+                byProductConditionId.putIfAbsent(cardEntity.getProductConditionId(),
+                        ScryfallPriceRequest.builder()
+                                .key(cardEntity.getProductConditionId())
+                                .name(cardEntity.getName())
+                                .setName(cardEntity.getVersion())
+                                .foil(Boolean.TRUE.equals(cardEntity.getIsFoil()))
+                                .condition(cardEntity.getCardCondition())
+                                .build());
             }
         }
 
-        return byProductConditionId.entrySet().parallelStream()
-                .collect(Collectors.toConcurrentMap(Map.Entry::getKey,
-                        entry -> tcgService.fetchMarketPrice(entry.getKey(), entry.getValue())));
+        return scryfallService.fetchMarketPrices(byProductConditionId.values());
     }
 
     private void updateDeckMarketPrice(DeckEntity deckEntity, Map<String, Double> marketPrices) {
