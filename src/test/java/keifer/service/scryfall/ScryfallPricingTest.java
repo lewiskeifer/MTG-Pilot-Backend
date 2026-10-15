@@ -1,54 +1,18 @@
 package keifer.service.scryfall;
 
-import keifer.service.model.CardCondition;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 /**
- * The two pieces of the Scryfall pricing that fail quietly.
+ * Matching this catalogue's names against Scryfall's.
  *
  * A set name that does not flatten to the same text as Scryfall's spelling of it leaves every
- * card in that set unpriced, and a condition missing from the multiplier table prices a damaged
- * card as though it were near mint. Neither shows up as an error anywhere.
+ * card in that set unpriced, and says so only as one warning per card. The condition multipliers
+ * these prices are then put through are measured and tested in ConditionMultipliersTest.
  */
 public class ScryfallPricingTest {
-
-    @Test
-    public void everyConditionIsPriced() {
-
-        for (CardCondition condition : CardCondition.values()) {
-            double multiplier = ScryfallServiceImpl.conditionMultiplier(condition);
-            assertTrue(condition + " is priced at " + multiplier + " of near mint",
-                    multiplier > 0 && multiplier <= 1.0);
-        }
-    }
-
-    @Test
-    public void nearMintIsTheFullPrice() {
-        // Scryfall quotes near mint, so that one is the figure itself and not a fraction of it
-        assertEquals(1.0, ScryfallServiceImpl.conditionMultiplier(CardCondition.NEAR_MINT), 0.0001);
-    }
-
-    @Test
-    public void worseConditionsAreWorthLess() {
-
-        CardCondition[] descending = {CardCondition.NEAR_MINT, CardCondition.LIGHT_PLAY,
-                CardCondition.MODERATE_PLAY, CardCondition.HEAVY_PLAY, CardCondition.DAMAGED};
-
-        for (int i = 1; i < descending.length; ++i) {
-            assertTrue(descending[i] + " is not worth less than " + descending[i - 1],
-                    ScryfallServiceImpl.conditionMultiplier(descending[i])
-                            < ScryfallServiceImpl.conditionMultiplier(descending[i - 1]));
-        }
-    }
-
-    /** An unknown condition must not be charged full price on the quiet. */
-    @Test
-    public void anUnknownConditionFallsBackToNearMint() {
-        assertEquals(1.0, ScryfallServiceImpl.conditionMultiplier(null), 0.0001);
-    }
 
     /*
      * The two catalogues punctuate differently. These are real cases: TCGplayer writes "The

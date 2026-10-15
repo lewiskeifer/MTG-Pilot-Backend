@@ -34,6 +34,7 @@ public class EntityMappingTest {
             CardEntity.class,
             DeckEntity.class,
             DeckSnapshotEntity.class,
+            ConditionMultiplierEntity.class,
             PriceSnapshotEntity.class,
             SealedCollectionEntity.class,
             SealedCollectionSnapshotEntity.class,

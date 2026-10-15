@@ -13,6 +13,7 @@ import keifer.service.model.CardCondition;
 import keifer.service.model.DeckFormat;
 import keifer.service.model.PriceBaselines;
 import keifer.service.model.PriceKind;
+import keifer.service.scryfall.ConditionMultipliers;
 import keifer.service.scryfall.ScryfallPriceRequest;
 import keifer.service.scryfall.ScryfallService;
 import lombok.NonNull;
@@ -51,6 +52,7 @@ public class DeckServiceImpl implements DeckService {
     private final CardConverter cardConverter;
     private final TcgService tcgService;
     private final ScryfallService scryfallService;
+    private final ConditionMultipliers conditionMultipliers;
     private final PriceHistoryService priceHistoryService;
     private final TokenParsingServiceImpl tokenParsingServiceImpl;
 
@@ -62,6 +64,7 @@ public class DeckServiceImpl implements DeckService {
                            @NonNull CardConverter cardConverter,
                            @NonNull TcgService tcgService,
                            @NonNull ScryfallService scryfallService,
+                           @NonNull ConditionMultipliers conditionMultipliers,
                            @NonNull PriceHistoryService priceHistoryService,
                            @NonNull TokenParsingServiceImpl tokenParsingServiceImpl) {
         this.userRepository = userRepository;
@@ -72,6 +75,7 @@ public class DeckServiceImpl implements DeckService {
         this.cardConverter = cardConverter;
         this.tcgService = tcgService;
         this.scryfallService = scryfallService;
+        this.conditionMultipliers = conditionMultipliers;
         this.priceHistoryService = priceHistoryService;
         this.tokenParsingServiceImpl = tokenParsingServiceImpl;
     }
@@ -364,7 +368,23 @@ public class DeckServiceImpl implements DeckService {
             }
         }
 
-        return scryfallService.fetchMarketPrices(byProductConditionId.values());
+        /*
+         * Measured before anything is priced, and only ever once. The measurement compares the
+         * TCGplayer prices still sitting on these cards against Scryfall's, and the refresh
+         * below is what replaces those TCGplayer prices - so after this runs, the evidence is
+         * gone for good.
+         */
+        conditionMultipliers.calibrateIfUnmeasured();
+
+        Map<String, Double> prices = new HashMap<>();
+
+        // Scryfall quotes near mint; what each card is actually worth is that, in its condition
+        scryfallService.fetchNearMintPrices(byProductConditionId.values()).forEach((key, nearMint) -> {
+            ScryfallPriceRequest card = byProductConditionId.get(key);
+            prices.put(key, nearMint * conditionMultipliers.multiplierFor(card.getCondition(), card.isFoil()));
+        });
+
+        return prices;
     }
 
     private void updateDeckMarketPrice(DeckEntity deckEntity, Map<String, Double> marketPrices) {

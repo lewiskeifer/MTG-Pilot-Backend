@@ -1,7 +1,6 @@
 package keifer.service.scryfall;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import keifer.service.model.CardCondition;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -54,32 +53,15 @@ public class ScryfallServiceImpl implements ScryfallService {
     /** The most identifiers one /cards/collection call will take. */
     private static final int BATCH_SIZE = 75;
 
-    /*
-     * What a played copy is worth against a near mint one.
-     *
-     * Scryfall prices near mint alone, so these carry that figure down to the condition actually
-     * held. They are a convention - the shape of the discount, not a measurement of it - and the
-     * one place to change if they read wrong against what cards actually sell for.
-     */
-    private static final Map<CardCondition, Double> CONDITION_MULTIPLIER;
-
-    static {
-        Map<CardCondition, Double> multipliers = new HashMap<>();
-        multipliers.put(CardCondition.NEAR_MINT, 1.00);
-        multipliers.put(CardCondition.LIGHT_PLAY, 0.85);
-        multipliers.put(CardCondition.MODERATE_PLAY, 0.70);
-        multipliers.put(CardCondition.HEAVY_PLAY, 0.50);
-        multipliers.put(CardCondition.DAMAGED, 0.35);
-        CONDITION_MULTIPLIER = Collections.unmodifiableMap(multipliers);
-    }
-
     /** Set name, flattened for matching, against Scryfall's own code for it. */
     private final Map<String, String> setCodesByName = new ConcurrentHashMap<>();
 
     private final RestTemplate restTemplate = new RestTemplate();
 
+
+
     @Override
-    public Map<String, Double> fetchMarketPrices(Collection<ScryfallPriceRequest> cards) {
+    public Map<String, Double> fetchNearMintPrices(Collection<ScryfallPriceRequest> cards) {
 
         Map<String, Double> prices = new HashMap<>();
 
@@ -183,7 +165,7 @@ public class ScryfallServiceImpl implements ScryfallService {
             return java.util.Optional.empty();
         }
 
-        return java.util.Optional.of(Double.parseDouble(nearMint) * conditionMultiplier(request.getCondition()));
+        return java.util.Optional.of(Double.parseDouble(nearMint));
     }
 
     private CollectionResponse post(List<Map<String, String>> identifiers) {
@@ -259,14 +241,6 @@ public class ScryfallServiceImpl implements ScryfallService {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
-    }
-
-    /*
-     * Package private, and tested: a condition missing from the table would quietly price a
-     * damaged card as though it were near mint, which no log line would ever mention.
-     */
-    static double conditionMultiplier(CardCondition condition) {
-        return CONDITION_MULTIPLIER.getOrDefault(condition, 1.00);
     }
 
     private static String printingKey(String name, String setCode) {
