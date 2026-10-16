@@ -37,12 +37,15 @@ public class SealedServiceImpl implements SealedService {
     private static final String TIME_ZONE = "America/New_York";
     private static final ZoneId ZONE_ID = ZoneId.of(TIME_ZONE);
 
+    private static final long PAUSE_BETWEEN_PRICES_MS = 250;
+
     private final UserRepository userRepository;
     private final SealedCollectionRepository sealedCollectionRepository;
     private final SealedCollectionConverter sealedCollectionConverter;
     private final SealedRepository sealedRepository;
     private final SealedConverter sealedConverter;
-    private final TcgService tcgService;
+    // The website rather than the API, which is closed to us; see TcgPlayerSiteService
+    private final TcgPlayerSiteService tcgPlayerSiteService;
     private final PriceHistoryService priceHistoryService;
     private final TokenParsingServiceImpl tokenParsingServiceImpl;
 
@@ -51,7 +54,7 @@ public class SealedServiceImpl implements SealedService {
                              @NonNull SealedCollectionConverter sealedCollectionConverter,
                              @NonNull SealedRepository sealedRepository,
                              @NonNull SealedConverter sealedConverter,
-                             @NonNull TcgService tcgService,
+                             @NonNull TcgPlayerSiteService tcgPlayerSiteService,
                              @NonNull PriceHistoryService priceHistoryService,
                              @NonNull TokenParsingServiceImpl tokenParsingServiceImpl) {
         this.userRepository = userRepository;
@@ -59,7 +62,7 @@ public class SealedServiceImpl implements SealedService {
         this.sealedCollectionConverter = sealedCollectionConverter;
         this.sealedRepository = sealedRepository;
         this.sealedConverter = sealedConverter;
-        this.tcgService = tcgService;
+        this.tcgPlayerSiteService = tcgPlayerSiteService;
         this.priceHistoryService = priceHistoryService;
         this.tokenParsingServiceImpl = tokenParsingServiceImpl;
     }
@@ -137,8 +140,8 @@ public class SealedServiceImpl implements SealedService {
 
         SealedCollectionEntity sealedCollectionEntity = fetchSealedCollectionEntity(userId, deckId);
 
-        Map<String, String> results = tcgService.fetchProductIdAndUrl(sealed.getName());
-        double marketPrice = tcgService.fetchMarketPriceByProductId(results.get("productId"), sealed.getName());
+        Map<String, String> results = tcgPlayerSiteService.fetchProductIdAndUrl(sealed.getName());
+        double marketPrice = tcgPlayerSiteService.fetchMarketPriceByProductId(results.get("productId"), sealed.getName());
 
         SealedEntity sealedEntity = SealedEntity.builder()
                 .name(sealed.getName())
@@ -220,10 +223,9 @@ public class SealedServiceImpl implements SealedService {
     }
 
     /*
-     * Prices are fetched in parallel because the TCG calls are the slow part, but every entity
-     * read and write below stays on the calling thread. The Hibernate session backing these
-     * entities is not thread safe, and refreshing collections on a parallel stream let two
-     * threads decide independently that today had no snapshot yet, writing duplicate rows.
+     * Every entity read and write below stays on the calling thread. The Hibernate session
+     * backing these entities is not thread safe, and refreshing collections on a parallel stream
+     * let two threads decide independently that today had no snapshot yet, writing duplicate rows.
      */
     private void updateMarketPrices(List<SealedCollectionEntity> sealedCollectionEntities) {
 
@@ -257,9 +259,27 @@ public class SealedServiceImpl implements SealedService {
             }
         }
 
-        return byProductId.entrySet().parallelStream()
-                .collect(Collectors.toConcurrentMap(Map.Entry::getKey,
-                        entry -> tcgService.fetchMarketPriceByProductId(entry.getKey(), entry.getValue())));
+        /*
+         * One at a time, with a pause between, rather than in parallel: this is a website, not an
+         * API, and a burst of requests is the quickest way to be turned away by it. A collection
+         * holds few enough products that it costs seconds. The first refusal throws, ending the
+         * run, and the caller carries stored prices forward.
+         */
+        Map<String, Double> prices = new HashMap<>();
+        for (Map.Entry<String, String> entry : byProductId.entrySet()) {
+            prices.put(entry.getKey(), tcgPlayerSiteService.fetchMarketPriceByProductId(entry.getKey(), entry.getValue()));
+            pause();
+        }
+
+        return prices;
+    }
+
+    private static void pause() {
+        try {
+            Thread.sleep(PAUSE_BETWEEN_PRICES_MS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     /** The price already held against each product, for when TCGplayer cannot be asked. */
