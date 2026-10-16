@@ -316,7 +316,18 @@ public class DeckServiceImpl implements DeckService {
      */
     private void updateMarketPrices(List<DeckEntity> deckEntities) {
 
-        Map<String, Double> marketPrices = fetchMarketPrices(deckEntities);
+        Map<String, Double> marketPrices;
+        try {
+            marketPrices = fetchMarketPrices(deckEntities);
+        } catch (RuntimeException e) {
+            /*
+             * Most often TCGplayer refusing our token. Rather than abort and leave a gap in every
+             * deck's history, carry each card's stored price forward so today still gets a
+             * snapshot - flat, but present.
+             */
+            log.error("Could not fetch card prices from TCGplayer; carrying stored prices forward", e);
+            marketPrices = storedMarketPrices(deckEntities);
+        }
 
         // Today's reading for every printing touched, kept so a card can be measured over a
         // window and not just against what it cost
@@ -346,6 +357,21 @@ public class DeckServiceImpl implements DeckService {
         return byProductConditionId.entrySet().parallelStream()
                 .collect(Collectors.toConcurrentMap(Map.Entry::getKey,
                         entry -> tcgService.fetchMarketPrice(entry.getKey(), entry.getValue())));
+    }
+
+    /** The price already held against each printing, for when TCGplayer cannot be asked. */
+    private Map<String, Double> storedMarketPrices(List<DeckEntity> deckEntities) {
+
+        Map<String, Double> byProductConditionId = new HashMap<>();
+        for (DeckEntity deckEntity : deckEntities) {
+            for (CardEntity cardEntity : deckEntity.getCardEntities()) {
+                if (cardEntity.getProductConditionId() != null && cardEntity.getMarketPrice() != null) {
+                    byProductConditionId.putIfAbsent(cardEntity.getProductConditionId(), cardEntity.getMarketPrice());
+                }
+            }
+        }
+
+        return byProductConditionId;
     }
 
     private void updateDeckMarketPrice(DeckEntity deckEntity, Map<String, Double> marketPrices) {

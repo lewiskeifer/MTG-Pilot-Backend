@@ -43,8 +43,18 @@ public class TcgServiceImpl implements TcgService {
 
     public TcgServiceImpl(@NonNull YAMLConfig yamlConfig, @NonNull VersionRepository versionRepository) {
         this.yamlConfig = yamlConfig;
-        token = getToken();
         this.versionRepository = versionRepository;
+
+        /*
+         * Not fatal. An application that cannot get a token still serves every screen, and its
+         * refreshes still write snapshots from stored prices; calls that need TCGplayer try
+         * for a token again when they are made.
+         */
+        try {
+            getToken();
+        } catch (RuntimeException e) {
+            log.error("Starting without a TCGplayer token; calls to TCGplayer will try again for one.", e);
+        }
     }
 
     /*
@@ -56,6 +66,12 @@ public class TcgServiceImpl implements TcgService {
     private <T> ResponseEntity<T> getAuthorized(String url, Class<T> responseType) {
 
         String tokenUsed = token;
+
+        // Startup is allowed to find no token at all, so the first call that needs one asks
+        if (tokenUsed == null) {
+            renewToken(null);
+            tokenUsed = token;
+        }
 
         try {
             return exchange(url, responseType, tokenUsed);
@@ -91,7 +107,8 @@ public class TcgServiceImpl implements TcgService {
      */
     private synchronized void renewToken(String tokenUsed) {
 
-        if (!tokenUsed.equals(token)) {
+        // Null where startup could not get one, which is the one case that must still try
+        if (token != null && !token.equals(tokenUsed)) {
             log.debug("Token already renewed by another caller.");
             return;
         }
