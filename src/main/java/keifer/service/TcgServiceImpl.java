@@ -17,12 +17,16 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -41,10 +45,38 @@ public class TcgServiceImpl implements TcgService {
 
     private static final String tcgUrlPrefix = "https://api.tcgplayer.com";
 
+    /*
+     * A RestTemplate waits forever by default, so one hung connection held a whole refresh
+     * hostage. Shared, since a RestTemplate is thread safe and there is no reason to build one
+     * per call.
+     */
+    private static final int CONNECT_TIMEOUT_MS = 5_000;
+    private static final int READ_TIMEOUT_MS = 10_000;
+    private final RestTemplate restTemplate = buildRestTemplate();
+
+    /*
+     * Once TCGplayer has refused us or not answered, every other call in the same refresh would
+     * only find the same thing out again, one round trip at a time and queued behind the
+     * synchronized token renewal. For this long after a failure, calls fail at once instead, so
+     * the refresh can fall back to stored prices straight away.
+     */
+    private static final Duration UNAVAILABLE_BACKOFF = Duration.ofMinutes(10);
+    private volatile Instant unavailableSince;
+
     public TcgServiceImpl(@NonNull YAMLConfig yamlConfig, @NonNull VersionRepository versionRepository) {
         this.yamlConfig = yamlConfig;
-        token = getToken();
         this.versionRepository = versionRepository;
+
+        /*
+         * Not fatal. An application that cannot get a token still serves every screen, and its
+         * refreshes still write snapshots from stored prices; calls that need TCGplayer try
+         * for a token again when they are made.
+         */
+        try {
+            getToken();
+        } catch (RuntimeException e) {
+            log.error("Starting without a TCGplayer token; calls to TCGplayer will try again for one.", e);
+        }
     }
 
     /*
@@ -55,7 +87,15 @@ public class TcgServiceImpl implements TcgService {
      */
     private <T> ResponseEntity<T> getAuthorized(String url, Class<T> responseType) {
 
+        checkAvailable();
+
         String tokenUsed = token;
+
+        // Startup is allowed to find no token at all, so the first call that needs one asks
+        if (tokenUsed == null) {
+            renewToken(null);
+            tokenUsed = token;
+        }
 
         try {
             return exchange(url, responseType, tokenUsed);
@@ -70,13 +110,48 @@ public class TcgServiceImpl implements TcgService {
 
             renewToken(tokenUsed);
 
-            return exchange(url, responseType, token);
+            try {
+                return exchange(url, responseType, token);
+            } catch (HttpClientErrorException retry) {
+                // Refused with a token minted a moment ago: the keys themselves are no good
+                if (isAuthFailure(retry)) {
+                    markUnavailable();
+                }
+                throw retry;
+            }
+        } catch (ResourceAccessException e) {
+            // Timed out or could not connect; the next call would wait just as long
+            markUnavailable();
+            throw e;
         }
+    }
+
+    private void checkAvailable() {
+
+        Instant since = unavailableSince;
+
+        if (since != null && Instant.now().isBefore(since.plus(UNAVAILABLE_BACKOFF))) {
+            throw new TcgServiceException(HttpStatus.BAD_GATEWAY,
+                    "TCGplayer has been unavailable since " + since + "; not trying again until "
+                            + since.plus(UNAVAILABLE_BACKOFF) + ".");
+        }
+    }
+
+    private void markUnavailable() {
+        unavailableSince = Instant.now();
+    }
+
+    private static RestTemplate buildRestTemplate() {
+
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(CONNECT_TIMEOUT_MS);
+        requestFactory.setReadTimeout(READ_TIMEOUT_MS);
+
+        return new RestTemplate(requestFactory);
     }
 
     private <T> ResponseEntity<T> exchange(String url, Class<T> responseType, String bearerToken) {
 
-        RestTemplate restTemplate = new RestTemplate();
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(bearerToken);
         HttpEntity<String> requestEntity = new HttpEntity<>("parameters", headers);
@@ -91,10 +166,14 @@ public class TcgServiceImpl implements TcgService {
      */
     private synchronized void renewToken(String tokenUsed) {
 
-        if (!tokenUsed.equals(token)) {
+        // Null where startup could not get one, which is the one case that must still try
+        if (token != null && !token.equals(tokenUsed)) {
             log.debug("Token already renewed by another caller.");
             return;
         }
+
+        // Another caller may have just failed to renew while this one waited for the lock
+        checkAvailable();
 
         getToken();
     }
@@ -103,7 +182,6 @@ public class TcgServiceImpl implements TcgService {
     @Scheduled(cron="0 0 3 * * *", zone="America/New_York")
     private synchronized String getToken() {
 
-        RestTemplate restTemplate = new RestTemplate();
         String body = "grant_type=client_credentials&client_id=" + yamlConfig.getPublicKey()
                 + "&client_secret=" + yamlConfig.getPrivateKey();
         String url = "https://api.tcgplayer.com/token";
@@ -115,11 +193,19 @@ public class TcgServiceImpl implements TcgService {
                     restTemplate.exchange(url, HttpMethod.POST, requestEntity, String.class);
 
             this.token = readAccessToken(responseEntity.getBody());
+            unavailableSince = null;
             log.info("TCGplayer token refreshed.");
 
             return this.token;
 
+        } catch (TcgServiceException e) {
+            // An answer that carried no usable token
+            markUnavailable();
+            throw e;
         } catch (RestClientException e) {
+
+            markUnavailable();
+
             /*
              * Worth shouting about: every price and every card lookup uses this token, so a
              * failure here is the reason for a day of 401s everywhere else.
