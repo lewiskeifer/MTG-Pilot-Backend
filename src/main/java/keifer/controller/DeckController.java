@@ -6,6 +6,7 @@ import keifer.api.model.Deck;
 import keifer.api.model.User;
 import keifer.service.DataMigrationService;
 import keifer.service.DeckService;
+import keifer.service.TcgPlayerSiteService;
 import keifer.service.TcgService;
 import keifer.service.UserService;
 import lombok.NonNull;
@@ -23,15 +24,18 @@ public class DeckController {
     private final DeckService deckService;
     private final DataMigrationService dataMigrationService;
     private final TcgService tcgService;
+    private final TcgPlayerSiteService tcgPlayerSiteService;
 
     public DeckController(@NonNull UserService userService,
                           @NonNull DeckService deckService,
                           @NonNull DataMigrationService dataMigrationService,
-                          @NonNull TcgService tcgService) {
+                          @NonNull TcgService tcgService,
+                          @NonNull TcgPlayerSiteService tcgPlayerSiteService) {
         this.userService = userService;
         this.deckService = deckService;
         this.dataMigrationService = dataMigrationService;
         this.tcgService = tcgService;
+        this.tcgPlayerSiteService = tcgPlayerSiteService;
     }
 
     @GetMapping()
@@ -66,7 +70,7 @@ public class DeckController {
 
     @GetMapping("/sets/{cardName}")
     public List<String> getSets(@PathVariable("cardName") String cardName) {
-        return tcgService.fetchVersions(cardName);
+        return tcgPlayerSiteService.fetchVersions(cardName);
     }
 
     @GetMapping("/set/{groupId}")

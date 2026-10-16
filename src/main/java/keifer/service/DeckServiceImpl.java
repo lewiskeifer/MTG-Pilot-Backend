@@ -47,7 +47,8 @@ public class DeckServiceImpl implements DeckService {
     private final DeckConverter deckConverter;
     private final CardRepository cardRepository;
     private final CardConverter cardConverter;
-    private final TcgService tcgService;
+    // The website rather than the API, which is closed to us; see TcgPlayerSiteService
+    private final TcgPlayerSiteService tcgPlayerSiteService;
     private final PriceHistoryService priceHistoryService;
     private final TokenParsingServiceImpl tokenParsingServiceImpl;
 
@@ -57,7 +58,7 @@ public class DeckServiceImpl implements DeckService {
                            @NonNull DeckConverter deckConverter,
                            @NonNull CardRepository cardRepository,
                            @NonNull CardConverter cardConverter,
-                           @NonNull TcgService tcgService,
+                           @NonNull TcgPlayerSiteService tcgPlayerSiteService,
                            @NonNull PriceHistoryService priceHistoryService,
                            @NonNull TokenParsingServiceImpl tokenParsingServiceImpl) {
         this.userRepository = userRepository;
@@ -66,7 +67,7 @@ public class DeckServiceImpl implements DeckService {
         this.deckConverter = deckConverter;
         this.cardRepository = cardRepository;
         this.cardConverter = cardConverter;
-        this.tcgService = tcgService;
+        this.tcgPlayerSiteService = tcgPlayerSiteService;
         this.priceHistoryService = priceHistoryService;
         this.tokenParsingServiceImpl = tokenParsingServiceImpl;
     }
@@ -140,12 +141,10 @@ public class DeckServiceImpl implements DeckService {
 
         DeckEntity deckEntity = fetchDeck(userId, deckId);
 
-        Integer groupId = versionRepository.findTopByName(card.getSet()).getGroupId();
-        card.setGroupId(groupId);
+        Map<String, String> results = tcgPlayerSiteService.fetchProductConditionIdAndUrl(card);
 
-        Map<String, String> results = tcgService.fetchProductConditionIdAndUrl(card);
-        double marketPrice = tcgService.fetchMarketPrice(results.get("productConditionId"),
-                CardEntity.describe(card.getName(), card.getSet(), card.getCardCondition(), card.getIsFoil()));
+        Integer groupId = groupIdOf(card.getSet(), results);
+        card.setGroupId(groupId);
 
         CardEntity cardEntity = CardEntity.builder()
                 .groupId(groupId)
@@ -157,9 +156,11 @@ public class DeckServiceImpl implements DeckService {
                 .quantity(card.getQuantity())
                 .productConditionId(results.get("productConditionId"))
                 .url(results.get("image"))
-                .marketPrice(marketPrice)
                 .deckEntity(deckEntity)
                 .build();
+
+        cardEntity.setMarketPrice(tcgPlayerSiteService.fetchCardMarketPrices(Collections.singletonList(cardEntity))
+                .getOrDefault(cardEntity.getProductConditionId(), 0.0));
 
         // Save new card
         if (card.getId() == null) {
@@ -309,10 +310,9 @@ public class DeckServiceImpl implements DeckService {
     }
 
     /*
-     * Prices are fetched in parallel because the TCG calls are the slow part, but every entity
-     * read and write below stays on the calling thread. The Hibernate session backing these
-     * entities is not thread safe, and refreshing decks on a parallel stream let two threads
-     * decide independently that today had no snapshot yet, writing duplicate rows.
+     * Every entity read and write below stays on the calling thread. The Hibernate session
+     * backing these entities is not thread safe, and refreshing decks on a parallel stream let
+     * two threads decide independently that today had no snapshot yet, writing duplicate rows.
      */
     private void updateMarketPrices(List<DeckEntity> deckEntities) {
 
@@ -338,25 +338,42 @@ public class DeckServiceImpl implements DeckService {
         }
     }
 
+    /*
+     * Asked for all at once rather than card by card: the site prices a whole printing in one
+     * request, every condition and finish of it, and paces its own requests.
+     */
     private Map<String, Double> fetchMarketPrices(List<DeckEntity> deckEntities) {
 
-        /*
-         * One entry per printing, against a card that holds it. Still deduplicated - the same
-         * printing sits in several decks and is worth one call - but carrying a name, because a
-         * bare product-condition id in a log line names nothing anyone can go and fix.
-         */
-        Map<String, String> byProductConditionId = new HashMap<>();
+        List<CardEntity> cardEntities = new ArrayList<>();
         for (DeckEntity deckEntity : deckEntities) {
-            for (CardEntity cardEntity : deckEntity.getCardEntities()) {
-                if (cardEntity.getProductConditionId() != null) {
-                    byProductConditionId.putIfAbsent(cardEntity.getProductConditionId(), cardEntity.describe());
-                }
-            }
+            cardEntities.addAll(deckEntity.getCardEntities());
         }
 
-        return byProductConditionId.entrySet().parallelStream()
-                .collect(Collectors.toConcurrentMap(Map.Entry::getKey,
-                        entry -> tcgService.fetchMarketPrice(entry.getKey(), entry.getValue())));
+        return tcgPlayerSiteService.fetchCardMarketPrices(cardEntities);
+    }
+
+    /*
+     * The set's group id, adding the set where this server has never heard of it. The list of
+     * sets was synced from the API, so anything released since it closed is missing - and a card
+     * whose set is not on the list cannot be shown, since its abbreviation is read from there.
+     */
+    private Integer groupIdOf(String setName, Map<String, String> results) {
+
+        VersionEntity versionEntity = versionRepository.findTopByName(setName);
+
+        if (versionEntity == null) {
+
+            versionEntity = versionRepository.save(VersionEntity.builder()
+                    .groupId(Integer.valueOf(results.get("groupId")))
+                    .name(results.get("setName"))
+                    .abbreviation(results.get("abbreviation"))
+                    .build());
+
+            log.info("Added set {} ({}) [groupId {}], which had not been synced",
+                    versionEntity.getName(), versionEntity.getAbbreviation(), versionEntity.getGroupId());
+        }
+
+        return versionEntity.getGroupId();
     }
 
     /** The price already held against each printing, for when TCGplayer cannot be asked. */
