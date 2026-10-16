@@ -227,7 +227,14 @@ public class SealedServiceImpl implements SealedService {
      */
     private void updateMarketPrices(List<SealedCollectionEntity> sealedCollectionEntities) {
 
-        Map<String, Double> marketPrices = fetchMarketPrices(sealedCollectionEntities);
+        Map<String, Double> marketPrices;
+        try {
+            marketPrices = fetchMarketPrices(sealedCollectionEntities);
+        } catch (RuntimeException e) {
+            // As with decks: carry stored prices forward so today still gets a snapshot
+            log.error("Could not fetch sealed prices from TCGplayer; carrying stored prices forward", e);
+            marketPrices = storedMarketPrices(sealedCollectionEntities);
+        }
 
         // Today's reading for every product touched, so one box can be measured over a window
         priceHistoryService.record(PriceKind.SEALED, marketPrices);
@@ -253,6 +260,21 @@ public class SealedServiceImpl implements SealedService {
         return byProductId.entrySet().parallelStream()
                 .collect(Collectors.toConcurrentMap(Map.Entry::getKey,
                         entry -> tcgService.fetchMarketPriceByProductId(entry.getKey(), entry.getValue())));
+    }
+
+    /** The price already held against each product, for when TCGplayer cannot be asked. */
+    private Map<String, Double> storedMarketPrices(List<SealedCollectionEntity> sealedCollectionEntities) {
+
+        Map<String, Double> byProductId = new HashMap<>();
+        for (SealedCollectionEntity sealedCollectionEntity : sealedCollectionEntities) {
+            for (SealedEntity sealedEntity : sealedCollectionEntity.getSealedEntities()) {
+                if (sealedEntity.getProductId() != null && sealedEntity.getMarketPrice() != null) {
+                    byProductId.putIfAbsent(sealedEntity.getProductId(), sealedEntity.getMarketPrice());
+                }
+            }
+        }
+
+        return byProductId;
     }
 
     private void updateDeckMarketPrice(SealedCollectionEntity sealedCollectionEntity, Map<String, Double> marketPrices) {
