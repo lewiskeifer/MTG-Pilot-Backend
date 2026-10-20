@@ -2,6 +2,7 @@ package keifer.controller;
 
 import io.swagger.annotations.Api;
 import keifer.api.model.Login;
+import keifer.api.model.PasswordChange;
 import keifer.api.model.User;
 import keifer.service.UserService;
 import lombok.NonNull;
@@ -36,7 +37,7 @@ public class LoginController {
     }
 
     @PostMapping("/reset-password")
-    public User resetPassword(@RequestBody User user) {
-        return userService.resetPassword(user);
+    public User resetPassword(@RequestBody PasswordChange passwordChange) {
+        return userService.resetPassword(passwordChange);
     }
 }

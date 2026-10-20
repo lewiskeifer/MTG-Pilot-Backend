@@ -3,6 +3,7 @@ package keifer.service;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import keifer.api.model.Login;
+import keifer.api.model.PasswordChange;
 import keifer.api.model.User;
 import keifer.converter.UserConverter;
 import keifer.persistence.UserRepository;
@@ -143,18 +144,50 @@ public class UserServiceImplTest {
         byte[] oldSalt = stored.getSalt();
         when(userRepository.findOneByUsername("ann")).thenReturn(stored);
 
-        userService.resetPassword(user("ann", "new-password", null));
+        userService.resetPassword(new PasswordChange("ann", "old-password", "new-password"));
 
         assertThat(stored.getSalt()).isNotEqualTo(oldSalt);
         assertThatThrownBy(() -> userService.login(new Login("ann", "old-password"))).isInstanceOf(ServletException.class);
         assertThat(userService.login(new Login("ann", "new-password")).getToken()).isNotEmpty();
     }
 
+    // Once a username and a new password were enough to take over any account
     @Test
-    public void refusesAResetForAnUnknownUserOrWithNoPassword() {
+    public void refusesAResetWithoutTheCurrentPassword() {
 
-        assertThatThrownBy(() -> userService.resetPassword(user("nobody", "pw", null))).isInstanceOf(ServletException.class);
-        assertThatThrownBy(() -> userService.resetPassword(user("ann", "", null))).isInstanceOf(ServletException.class);
+        UserEntity stored = register("ann", "old-password");
+        byte[] password = stored.getPassword();
+        when(userRepository.findOneByUsername("ann")).thenReturn(stored);
+
+        assertThatThrownBy(() -> userService.resetPassword(new PasswordChange("ann", "a-guess", "taken-over")))
+                .isInstanceOf(ServletException.class);
+        assertThatThrownBy(() -> userService.resetPassword(new PasswordChange("ann", null, "taken-over")))
+                .isInstanceOf(ServletException.class);
+
+        assertThat(stored.getPassword()).isEqualTo(password);
+        assertThat(userService.login(new Login("ann", "old-password")).getToken()).isNotEmpty();
+    }
+
+    @Test
+    public void answersAnUnknownUserTheSameAsAWrongPassword() {
+
+        UserEntity stored = register("ann", "old-password");
+        when(userRepository.findOneByUsername("ann")).thenReturn(stored);
+
+        // Different answers would let anyone check which usernames exist
+        assertThatThrownBy(() -> userService.resetPassword(new PasswordChange("nobody", "pw", "new")))
+                .isInstanceOf(ServletException.class).hasMessage("Invalid username or password.");
+        assertThatThrownBy(() -> userService.resetPassword(new PasswordChange("ann", "wrong", "new")))
+                .isInstanceOf(ServletException.class).hasMessage("Invalid username or password.");
+    }
+
+    @Test
+    public void refusesAResetWithNoNewPassword() {
+
+        assertThatThrownBy(() -> userService.resetPassword(new PasswordChange("ann", "old-password", "")))
+                .isInstanceOf(ServletException.class);
+
+        verify(userRepository, never()).save(any());
     }
 
     // ---- Helpers ----

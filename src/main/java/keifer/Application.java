@@ -20,7 +20,8 @@ public class Application {
     public FilterRegistrationBean jwtFilter(YAMLConfig yamlConfig) {
         final FilterRegistrationBean registrationBean = new FilterRegistrationBean();
         registrationBean.setFilter(new JwtFilter(yamlConfig));
-        registrationBean.addUrlPatterns("/manager/*");
+        // Every route that reads a user's data; the sealed ones were missing, so nothing checked their tokens
+        registrationBean.addUrlPatterns("/manager/*", "/sealed/*");
 
         return registrationBean;
     }

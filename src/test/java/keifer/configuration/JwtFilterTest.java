@@ -6,7 +6,6 @@ import io.jsonwebtoken.SignatureAlgorithm;
 import keifer.Application;
 import keifer.service.model.YAMLConfig;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.mock.web.MockFilterChain;
@@ -99,12 +98,7 @@ public class JwtFilterTest {
         assertThat(((Number) claims.get("id")).longValue()).isEqualTo(42L);
     }
 
-    /*
-     * Known security bug: the filter is registered for /manager/* only, so nothing checks the
-     * token on /sealed/*. The sealed service reads the caller's id straight out of the token
-     * without checking its signature, so a hand-made token can name any user.
-     */
-    @Ignore("Known security bug: /sealed/* is not behind the token check - see comment")
+    // Was /manager/* only, so nothing checked the token on the sealed routes
     @Test
     public void guardsTheSealedEndpointsToo() {
 

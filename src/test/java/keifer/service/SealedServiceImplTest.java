@@ -13,7 +13,6 @@ import keifer.persistence.model.SealedEntity;
 import keifer.service.model.PriceBaselines;
 import keifer.service.model.PriceKind;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
@@ -91,11 +90,7 @@ public class SealedServiceImplTest {
         verify(sealedRepository, never()).delete(any());
     }
 
-    /*
-     * Known security bug: getSealedCollection never checks the caller is the user in the path,
-     * so anyone signed in can read anyone's collection by putting that user's id in the URL.
-     */
-    @Ignore("Known security bug: reading one collection skips the permission check - see comment")
+    // Once skipped the check, so anyone could read anyone's collection by putting their id in the URL
     @Test
     public void refusesToShowSomeoneElsesCollection() {
 
@@ -104,11 +99,7 @@ public class SealedServiceImplTest {
         assertThatThrownBy(() -> sealedService.getSealedCollection(OTHER_USER_ID, 5L)).isInstanceOf(AuthenticationException.class);
     }
 
-    /*
-     * Known security bug: deleteSealed finishes by deleting whatever sealed product has that id,
-     * whether or not it is in the collection named - which need not be the caller's own product.
-     */
-    @Ignore("Known security bug: deleting removes the product by id from any collection - see comment")
+    // Once deleted whatever product had the id, whichever collection - and whoever's - it was in
     @Test
     public void deletesOnlyAProductInTheNamedCollection() {
 
@@ -116,9 +107,10 @@ public class SealedServiceImplTest {
         when(sealedCollectionRepository.findOneByUserEntityIdAndId(USER_ID, 5L)).thenReturn(mine);
         when(sealedRepository.findOneById(99L)).thenReturn(product(99L, "p-99", 10.0, 1, 12.0));
 
-        sealedService.deleteSealed(USER_ID, 5L, 99L);
+        assertThatThrownBy(() -> sealedService.deleteSealed(USER_ID, 5L, 99L)).isInstanceOf(NotFoundException.class);
 
         verify(sealedRepository, never()).delete(any());
+        assertThat(mine.getSealedEntities()).hasSize(1);
     }
 
     @Test
@@ -141,6 +133,7 @@ public class SealedServiceImplTest {
 
         assertThat(mine.getSealedEntities()).extracting(SealedEntity::getId).containsExactly(2L);
         verify(sealedCollectionRepository).save(mine);
+        verify(sealedRepository).delete(box);
     }
 
     // ---- Reading ----

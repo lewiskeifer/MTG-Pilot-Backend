@@ -108,7 +108,39 @@ public class DeckServiceImplTest {
         when(deckRepository.findOneByUserEntityIdAndId(USER_ID, 5L)).thenReturn(null);
 
         assertThatThrownBy(() -> deckService.deleteCard(USER_ID, 5L, 9L)).isInstanceOf(NotFoundException.class);
+        verify(cardRepository, never()).delete(any());
         verify(cardRepository, never()).deleteById(any());
+    }
+
+    // Once deleted whatever card had the id, so long as the deck named was the caller's
+    @Test
+    public void deletesOnlyACardInTheNamedDeck() {
+
+        DeckEntity elves = deck(10L, "Elves", cardEntity("sku-1", 1.0, 1, 3.0));
+        elves.getCardEntities().get(0).setId(1L);
+        when(deckRepository.findOneByUserEntityIdAndId(USER_ID, 10L)).thenReturn(elves);
+
+        assertThatThrownBy(() -> deckService.deleteCard(USER_ID, 10L, 99L)).isInstanceOf(NotFoundException.class);
+
+        verify(cardRepository, never()).delete(any());
+        verify(cardRepository, never()).deleteById(any());
+        assertThat(elves.getCardEntities()).hasSize(1);
+    }
+
+    @Test
+    public void deletesACardFromTheUsersDeck() {
+
+        CardEntity going = cardEntity("sku-1", 1.0, 1, 3.0);
+        going.setId(1L);
+        CardEntity staying = cardEntity("sku-2", 1.0, 1, 3.0);
+        staying.setId(2L);
+        DeckEntity elves = deck(10L, "Elves", going, staying);
+        when(deckRepository.findOneByUserEntityIdAndId(USER_ID, 10L)).thenReturn(elves);
+
+        deckService.deleteCard(USER_ID, 10L, 1L);
+
+        verify(cardRepository).delete(going);
+        assertThat(elves.getCardEntities()).containsExactly(staying);
     }
 
     // ---- Reading ----

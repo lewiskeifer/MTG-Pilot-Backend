@@ -3,6 +3,7 @@ package keifer.service;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import keifer.api.model.Login;
+import keifer.api.model.PasswordChange;
 import keifer.api.model.User;
 import keifer.converter.UserConverter;
 import keifer.persistence.UserRepository;
@@ -18,7 +19,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -65,10 +65,7 @@ public class UserServiceImpl implements UserService {
             throw new ServletException("Username not found.");
         }
 
-        MessageDigest md = MessageDigest.getInstance("SHA-512");
-        md.update(userEntity.getSalt());
-
-        if (!Arrays.equals(md.digest(password.getBytes(StandardCharsets.UTF_8)), userEntity.getPassword())) {
+        if (!passwordMatches(userEntity, password)) {
             throw new ServletException("Invalid login.");
         }
 
@@ -122,21 +119,31 @@ public class UserServiceImpl implements UserService {
         return userConverter.convert(userRepository.save(userEntity));
     }
 
+    /*
+     * Proves the current password before setting a new one. This used to take a username and a
+     * new password and nothing else, and sits on a route no token guards, so anyone who knew a
+     * username could take over the account.
+     *
+     * The same answer for an unknown user as for a wrong password, so this cannot be used to
+     * find out which usernames exist.
+     */
     @SneakyThrows
     @Override
-    public User resetPassword(User user) {
+    public User resetPassword(PasswordChange passwordChange) {
 
-        String username = user.getUsername();
-        String password = user.getPassword();
+        String username = passwordChange.getUsername();
+        String currentPassword = passwordChange.getCurrentPassword();
+        String password = passwordChange.getNewPassword();
 
         if (StringUtils.isEmpty(username) ||
+                StringUtils.isEmpty(currentPassword) ||
                 StringUtils.isEmpty(password)) {
-            throw new ServletException("Invalid registration.");
+            throw new ServletException("Username, current password and new password are all required.");
         }
 
         UserEntity userEntity = userRepository.findOneByUsername(username);
-        if (userEntity == null) {
-            throw new ServletException("Invalid username.");
+        if (userEntity == null || !passwordMatches(userEntity, currentPassword)) {
+            throw new ServletException("Invalid username or password.");
         }
 
         SecureRandom random = new SecureRandom();
@@ -155,6 +162,16 @@ public class UserServiceImpl implements UserService {
     @Override
     public void deleteUser(Long userId) {
         userRepository.deleteById(userId);
+    }
+
+    /** Whether a password, salted as this user's was, digests to the one stored. */
+    private static boolean passwordMatches(UserEntity userEntity, String password) throws NoSuchAlgorithmException {
+
+        MessageDigest md = MessageDigest.getInstance("SHA-512");
+        md.update(userEntity.getSalt());
+
+        // Constant time, so how long a wrong guess takes says nothing about how close it was
+        return MessageDigest.isEqual(md.digest(password.getBytes(StandardCharsets.UTF_8)), userEntity.getPassword());
     }
 
 }

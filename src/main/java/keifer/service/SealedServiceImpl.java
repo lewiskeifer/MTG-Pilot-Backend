@@ -88,6 +88,10 @@ public class SealedServiceImpl implements SealedService {
 
     public SealedCollection getSealedCollection(@PathVariable("userId") Long userId, @PathVariable("sealedId") Long sealedId) {
 
+        // The lookup below is scoped to the user in the path, which only protects anything once
+        // that user is known to be the caller - without this, any id in the URL would do
+        checkPermissions(userId);
+
         // Through the same lookup as everything else here, so an id that is not there answers
         // 404 rather than handing a null to the converter and dying inside it
         return sealedCollectionConverter.convert(fetchSealedCollectionEntity(userId, sealedId));
@@ -191,20 +195,21 @@ public class SealedServiceImpl implements SealedService {
         checkPermissions(userId);
 
         SealedCollectionEntity sealedCollectionEntity = fetchSealedCollectionEntity(userId, sealedId);
-        int count = 0;
-        for (SealedEntity sealedEntity : sealedCollectionEntity.getSealedEntities()) {
-            if (sealedEntity.getId().equals(cardId)) {
-                sealedCollectionEntity.getSealedEntities().remove(count);
-                break;
-            }
-            count++;
-        }
+
+        /*
+         * Found inside the caller's collection, not looked up by id on its own. Deleting whatever
+         * product had the id let anyone delete anyone's product, whichever collection they named.
+         */
+        SealedEntity sealedEntity = sealedCollectionEntity.getSealedEntities().stream()
+                .filter(candidate -> cardId.equals(candidate.getId()))
+                .findFirst()
+                .orElseThrow(() -> new NotFoundException(
+                        "Sealed product with id: " + cardId + " not found in collection " + sealedId + "."));
+
+        sealedCollectionEntity.getSealedEntities().remove(sealedEntity);
         sealedCollectionRepository.save(sealedCollectionEntity);
 
-        SealedEntity cardEntity = sealedRepository.findOneById(cardId);
-
-        // TODO check if necessary
-        sealedRepository.delete(cardEntity);
+        sealedRepository.delete(sealedEntity);
     }
 
     @Override

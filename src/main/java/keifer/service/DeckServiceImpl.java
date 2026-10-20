@@ -244,9 +244,16 @@ public class DeckServiceImpl implements DeckService {
 
         checkPermissions(userId);
 
-        fetchDeck(userId, deckId);
+        DeckEntity deckEntity = fetchDeck(userId, deckId);
 
-        cardRepository.deleteById(cardId);
+        // As with sealed: the card must be in the caller's deck, not merely exist somewhere
+        CardEntity cardEntity = deckEntity.getCardEntities().stream()
+                .filter(candidate -> cardId.equals(candidate.getId()))
+                .findFirst()
+                .orElseThrow(() -> new NotFoundException("Card with id: " + cardId + " not found in deck " + deckId + "."));
+
+        deckEntity.getCardEntities().remove(cardEntity);
+        cardRepository.delete(cardEntity);
     }
 
     @Override
