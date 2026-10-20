@@ -110,12 +110,9 @@ public class SealedServiceImpl implements SealedService {
                 throw new ServletException("User with id " + userId + " does not exist.");
             }
 
-            // After this user's last collection - as on the deck side, this used to take the
-            // highest position across every user's, and share it rather than follow it
-            Integer sortOrder = sealedCollection.getSortOrder();
-            if (sortOrder == null) {
-                sortOrder = lastSortOrder(userId) + 1;
-            }
+            // After this user's last collection, whatever position was sent - as on the deck side,
+            // where honouring it put the new one beside an existing one
+            int sortOrder = lastSortOrder(userId) + 1;
 
             sealedCollectionEntity = SealedCollectionEntity.builder()
                     .name(sealedCollection.getName())

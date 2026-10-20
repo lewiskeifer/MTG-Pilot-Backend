@@ -382,6 +382,21 @@ public class DeckServiceImplTest {
         assertThat(savedDeck().getSortOrder()).isEqualTo(4);
     }
 
+    // The screen sends whatever position was showing for the deck viewed before
+    @Test
+    public void putsANewDeckAtTheEndWhateverPositionIsSent() throws Exception {
+
+        List<DeckEntity> decks = Arrays.asList(deckAt(1), deckAt(2), deckAt(3));
+        when(userRepository.findOneById(USER_ID)).thenReturn(UserEntity.builder().id(USER_ID).build());
+        when(deckRepository.findByUserEntityIdOrderBySortOrderAsc(USER_ID)).thenReturn(decks);
+        when(deckRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        deckService.saveDeck(USER_ID, Deck.builder().id(-1L).name("New").format("Modern").sortOrder(2).build());
+
+        assertThat(savedDeck().getSortOrder()).isEqualTo(4);
+        assertThat(decks).extracting(DeckEntity::getSortOrder).containsExactly(1, 2, 3);
+    }
+
     @Test
     public void putsAUsersFirstDeckFirst() throws Exception {
 

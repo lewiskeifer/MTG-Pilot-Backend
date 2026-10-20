@@ -190,14 +190,13 @@ public class DeckServiceImpl implements DeckService {
             }
 
             /*
-             * After this user's last deck. This used to take the highest position across every
-             * user's decks, and to take it rather than the one after it, so a new deck shared a
-             * position with an existing one.
+             * After this user's last deck, whatever position was sent. Nothing shifts to make
+             * room for a new deck, so honouring one would put it beside an existing deck - and
+             * the screen sends whichever position was showing for the deck viewed before. This
+             * also used to take the highest position across every user's decks, and to take it
+             * rather than the one after it.
              */
-            Integer sortOrder = deck.getSortOrder();
-            if (sortOrder == null) {
-                sortOrder = lastSortOrder(userId) + 1;
-            }
+            int sortOrder = lastSortOrder(userId) + 1;
 
             deckEntity = DeckEntity.builder()
                     .name(deck.getName())

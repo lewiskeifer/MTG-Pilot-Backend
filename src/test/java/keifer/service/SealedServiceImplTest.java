@@ -293,7 +293,8 @@ public class SealedServiceImplTest {
                 .thenReturn(Arrays.asList(collectionAt(1), collectionAt(2)));
         when(sealedCollectionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        sealedService.saveSealedCollection(USER_ID, SealedCollection.builder().id(-1L).name("New").build());
+        // A position sent with a new collection is ignored: nothing would shift to make room for it
+        sealedService.saveSealedCollection(USER_ID, SealedCollection.builder().id(-1L).name("New").sortOrder(1).build());
 
         ArgumentCaptor<SealedCollectionEntity> saved = ArgumentCaptor.forClass(SealedCollectionEntity.class);
         verify(sealedCollectionRepository).save(saved.capture());
