@@ -17,7 +17,6 @@ import keifer.service.model.CardCondition;
 import keifer.service.model.PriceBaselines;
 import keifer.service.model.PriceKind;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
@@ -369,34 +368,33 @@ public class DeckServiceImplTest {
                 .isInstanceOf(ServletException.class);
     }
 
-    /*
-     * Known bug: a new deck takes findMaxSortOrder() itself, not one past it, so it shares a
-     * position with the last deck. That query is also over every user's decks, not this user's,
-     * and returns a primitive int, so the null fallback beneath it can never run.
-     */
-    @Ignore("Known bug: new deck shares the last deck's position - see comment")
+    // Once took the highest position across every user's decks, and shared it rather than followed it
     @Test
     public void putsANewDeckAfterTheUsersLastOne() throws Exception {
 
         when(userRepository.findOneById(USER_ID)).thenReturn(UserEntity.builder().id(USER_ID).build());
         when(deckRepository.findByUserEntityIdOrderBySortOrderAsc(USER_ID))
                 .thenReturn(Arrays.asList(deckAt(1), deckAt(2), deckAt(3)));
-        when(deckRepository.findMaxSortOrder()).thenReturn(3);
         when(deckRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         deckService.saveDeck(USER_ID, Deck.builder().id(-1L).name("New").format("Modern").build());
 
-        ArgumentCaptor<DeckEntity> saved = ArgumentCaptor.forClass(DeckEntity.class);
-        verify(deckRepository).save(saved.capture());
-        assertThat(saved.getValue().getSortOrder()).isEqualTo(4);
+        assertThat(savedDeck().getSortOrder()).isEqualTo(4);
     }
 
-    /*
-     * Known bug: moving a deck down renumbers every deck after its old position, through to the
-     * end of the list, rather than stopping at its new one - leaving two decks at the new position.
-     * Today this gives 1, 4, 2, 3, 4.
-     */
-    @Ignore("Known bug: moving a deck down leaves two decks at the same position - see comment")
+    @Test
+    public void putsAUsersFirstDeckFirst() throws Exception {
+
+        when(userRepository.findOneById(USER_ID)).thenReturn(UserEntity.builder().id(USER_ID).build());
+        when(deckRepository.findByUserEntityIdOrderBySortOrderAsc(USER_ID)).thenReturn(Collections.emptyList());
+        when(deckRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        deckService.saveDeck(USER_ID, Deck.builder().id(-1L).name("First").format("Modern").build());
+
+        assertThat(savedDeck().getSortOrder()).isEqualTo(1);
+    }
+
+    // Once left two decks at the new position: 1, 4, 2, 3, 4
     @Test
     public void movingADeckDownShiftsOnlyTheDecksItPasses() throws Exception {
 
@@ -426,13 +424,41 @@ public class DeckServiceImplTest {
     }
 
     @Test
+    public void savingADeckWithoutAPositionLeavesItWhereItIs() throws Exception {
+
+        List<DeckEntity> decks = Arrays.asList(deckAt(1), deckAt(2), deckAt(3));
+        DeckEntity renamed = decks.get(1);
+        when(deckRepository.findByUserEntityIdOrderBySortOrderAsc(USER_ID)).thenReturn(decks);
+        when(deckRepository.findOneByUserEntityIdAndId(USER_ID, renamed.getId())).thenReturn(renamed);
+
+        deckService.saveDeck(USER_ID, Deck.builder().id(renamed.getId()).name("Renamed").format("Modern").build());
+
+        assertThat(decks).extracting(DeckEntity::getSortOrder).containsExactly(1, 2, 3);
+        assertThat(renamed.getName()).isEqualTo("Renamed");
+    }
+
+    @Test
+    public void movingADeckCopesWithPositionsTheOldBugDuplicated() throws Exception {
+
+        // Left by the old bug: two decks at 4. The moving one is told apart by id, not position
+        List<DeckEntity> decks = Arrays.asList(deckAt(1), deckAt(2), deckAt(3), deckAt(4), deckAt(4));
+        DeckEntity moving = decks.get(4);
+        moving.setId(999L);
+        when(deckRepository.findByUserEntityIdOrderBySortOrderAsc(USER_ID)).thenReturn(decks);
+        when(deckRepository.findOneByUserEntityIdAndId(USER_ID, 999L)).thenReturn(moving);
+
+        deckService.saveDeck(USER_ID, Deck.builder().id(999L).name("Moving").format("Modern").sortOrder(1).build());
+
+        assertThat(decks).extracting(DeckEntity::getSortOrder).containsExactly(2, 3, 4, 4, 1);
+    }
+
+    @Test
     public void deletingADeckClosesTheGapItLeaves() {
 
         List<DeckEntity> decks = Arrays.asList(deckAt(1), deckAt(2), deckAt(3), deckAt(4));
         DeckEntity deleting = decks.get(1);
         when(deckRepository.findByUserEntityIdOrderBySortOrderAsc(USER_ID)).thenReturn(decks);
         when(deckRepository.findOneByUserEntityIdAndId(USER_ID, deleting.getId())).thenReturn(deleting);
-        when(deckRepository.findMaxSortOrder()).thenReturn(4);
 
         deckService.deleteDeck(USER_ID, deleting.getId());
 
@@ -442,6 +468,12 @@ public class DeckServiceImplTest {
     }
 
     // ---- Helpers ----
+
+    private DeckEntity savedDeck() {
+        ArgumentCaptor<DeckEntity> saved = ArgumentCaptor.forClass(DeckEntity.class);
+        verify(deckRepository).save(saved.capture());
+        return saved.getValue();
+    }
 
     @SuppressWarnings("unchecked")
     private Map<String, Double> recordedPrices() {

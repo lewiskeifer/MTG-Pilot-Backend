@@ -283,7 +283,74 @@ public class SealedServiceImplTest {
                 .isInstanceOf(ServletException.class);
     }
 
+    // ---- Ordering ----
+
+    @Test
+    public void putsANewCollectionAfterTheUsersLastOne() throws Exception {
+
+        when(userRepository.findOneById(USER_ID)).thenReturn(keifer.persistence.model.UserEntity.builder().id(USER_ID).build());
+        when(sealedCollectionRepository.findByUserEntityIdOrderBySortOrderAsc(USER_ID))
+                .thenReturn(Arrays.asList(collectionAt(1), collectionAt(2)));
+        when(sealedCollectionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        sealedService.saveSealedCollection(USER_ID, SealedCollection.builder().id(-1L).name("New").build());
+
+        ArgumentCaptor<SealedCollectionEntity> saved = ArgumentCaptor.forClass(SealedCollectionEntity.class);
+        verify(sealedCollectionRepository).save(saved.capture());
+        assertThat(saved.getValue().getSortOrder()).isEqualTo(3);
+    }
+
+    @Test
+    public void movingACollectionDownShiftsOnlyTheOnesItPasses() throws Exception {
+
+        List<SealedCollectionEntity> collections = Arrays.asList(
+                collectionAt(1), collectionAt(2), collectionAt(3), collectionAt(4), collectionAt(5));
+        SealedCollectionEntity moving = collections.get(1);
+        when(sealedCollectionRepository.findByUserEntityIdOrderBySortOrderAsc(USER_ID)).thenReturn(collections);
+        when(sealedCollectionRepository.findOneByUserEntityIdAndId(USER_ID, moving.getId())).thenReturn(moving);
+
+        sealedService.saveSealedCollection(USER_ID,
+                SealedCollection.builder().id(moving.getId()).name("Moving").sortOrder(4).build());
+
+        assertThat(collections).extracting(SealedCollectionEntity::getSortOrder).containsExactly(1, 4, 2, 3, 5);
+    }
+
+    @Test
+    public void movingACollectionUpShiftsOnlyTheOnesItPasses() throws Exception {
+
+        List<SealedCollectionEntity> collections = Arrays.asList(
+                collectionAt(1), collectionAt(2), collectionAt(3), collectionAt(4), collectionAt(5));
+        SealedCollectionEntity moving = collections.get(3);
+        when(sealedCollectionRepository.findByUserEntityIdOrderBySortOrderAsc(USER_ID)).thenReturn(collections);
+        when(sealedCollectionRepository.findOneByUserEntityIdAndId(USER_ID, moving.getId())).thenReturn(moving);
+
+        sealedService.saveSealedCollection(USER_ID,
+                SealedCollection.builder().id(moving.getId()).name("Moving").sortOrder(2).build());
+
+        assertThat(collections).extracting(SealedCollectionEntity::getSortOrder).containsExactly(1, 3, 4, 2, 5);
+    }
+
+    @Test
+    public void deletingACollectionClosesTheGapItLeaves() {
+
+        List<SealedCollectionEntity> collections = Arrays.asList(
+                collectionAt(1), collectionAt(2), collectionAt(3), collectionAt(4));
+        SealedCollectionEntity deleting = collections.get(1);
+        when(sealedCollectionRepository.findByUserEntityIdOrderBySortOrderAsc(USER_ID)).thenReturn(collections);
+        when(sealedCollectionRepository.findOneByUserEntityIdAndId(USER_ID, deleting.getId())).thenReturn(deleting);
+
+        sealedService.deleteSealedCollection(USER_ID, deleting.getId());
+
+        verify(sealedCollectionRepository).delete(deleting);
+        assertThat(Arrays.asList(collections.get(0), collections.get(2), collections.get(3)))
+                .extracting(SealedCollectionEntity::getSortOrder).containsExactly(1, 2, 3);
+    }
+
     // ---- Helpers ----
+
+    private static SealedCollectionEntity collectionAt(int sortOrder) {
+        return SealedCollectionEntity.builder().id(100L + sortOrder).name("Collection " + sortOrder).sortOrder(sortOrder).build();
+    }
 
     @SuppressWarnings("unchecked")
     private Map<String, Double> recordedPrices() {

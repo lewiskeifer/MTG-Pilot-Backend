@@ -189,12 +189,14 @@ public class DeckServiceImpl implements DeckService {
                 throw new ServletException("User with id " + userId + " does not exist.");
             }
 
+            /*
+             * After this user's last deck. This used to take the highest position across every
+             * user's decks, and to take it rather than the one after it, so a new deck shared a
+             * position with an existing one.
+             */
             Integer sortOrder = deck.getSortOrder();
             if (sortOrder == null) {
-                sortOrder = deckRepository.findMaxSortOrder();
-                if (sortOrder == null) {
-                    sortOrder = 1;
-                }
+                sortOrder = lastSortOrder(userId) + 1;
             }
 
             deckEntity = DeckEntity.builder()
@@ -207,8 +209,11 @@ public class DeckServiceImpl implements DeckService {
             deckEntity = fetchDeck(userId, deck.getId());
             deckEntity.setName(deck.getName());
             deckEntity.setDeckFormat(DeckFormat.fromString(deck.getFormat()));
-            cascadeDeckOrdering(userId, deckEntity.getSortOrder(), deck.getSortOrder());
-            deckEntity.setSortOrder(deck.getSortOrder());
+
+            // A save that names no position leaves the deck where it is
+            Integer sortOrder = deck.getSortOrder() == null ? deckEntity.getSortOrder() : deck.getSortOrder();
+            cascadeDeckOrdering(userId, deckEntity, sortOrder);
+            deckEntity.setSortOrder(sortOrder);
         }
 
         return deckConverter.convert(deckRepository.save(deckEntity));
@@ -263,7 +268,8 @@ public class DeckServiceImpl implements DeckService {
 
         DeckEntity deckEntity = fetchDeck(userId, deckId);
 
-        cascadeDeckOrdering(userId, deckEntity.getSortOrder(), deckRepository.findMaxSortOrder());
+        // Moved to the end on its way out, which closes the gap it leaves
+        cascadeDeckOrdering(userId, deckEntity, lastSortOrder(userId));
 
         deckRepository.delete(deckEntity);
     }
@@ -450,26 +456,52 @@ public class DeckServiceImpl implements DeckService {
         deckRepository.save(deckEntity);
     }
 
-    private void cascadeDeckOrdering(Long userId, int oldOrder, int newOrder) {
-        List<DeckEntity> decks = deckRepository.findByUserEntityIdOrderBySortOrderAsc(userId);
+    /*
+     * Makes room for a deck moving to a new position: only the decks it passes shift, one place
+     * back toward where it came from. Moving down used to renumber every deck from its old
+     * position to the end of the list, leaving two decks at the new position.
+     *
+     * By position rather than by place in the list, and the moving deck is passed over by id, so
+     * this still behaves where an earlier bug has already left two decks sharing a position.
+     */
+    private void cascadeDeckOrdering(Long userId, DeckEntity moving, Integer newOrder) {
+
+        Integer oldOrder = moving.getSortOrder();
+
+        if (oldOrder == null || newOrder == null || oldOrder.equals(newOrder)) {
+            return;
+        }
+
         List<DeckEntity> toUpdate = new ArrayList<>();
-        // Sift down
-        if (newOrder > oldOrder) {
-            for (int i = oldOrder; i < decks.size(); ++i) {
-                DeckEntity deckEntity = decks.get(i);
-                deckEntity.setSortOrder(i);
+
+        for (DeckEntity deckEntity : deckRepository.findByUserEntityIdOrderBySortOrderAsc(userId)) {
+
+            Integer order = deckEntity.getSortOrder();
+
+            if (order == null || deckEntity.getId().equals(moving.getId())) {
+                continue;
+            }
+
+            if (newOrder > oldOrder && order > oldOrder && order <= newOrder) {
+                deckEntity.setSortOrder(order - 1);
+                toUpdate.add(deckEntity);
+            } else if (newOrder < oldOrder && order >= newOrder && order < oldOrder) {
+                deckEntity.setSortOrder(order + 1);
                 toUpdate.add(deckEntity);
             }
         }
-        // Sift up
-        else if (oldOrder > newOrder) {
-            for (int i = newOrder; i < oldOrder; ++i) {
-                DeckEntity deckEntity = decks.get(i - 1);
-                deckEntity.setSortOrder(i + 1);
-                toUpdate.add(deckEntity);
-            }
-        }
+
         deckRepository.saveAll(toUpdate);
+    }
+
+    /** The position of this user's last deck, or 0 where they have none. */
+    private int lastSortOrder(Long userId) {
+
+        return deckRepository.findByUserEntityIdOrderBySortOrderAsc(userId).stream()
+                .map(DeckEntity::getSortOrder)
+                .filter(Objects::nonNull)
+                .max(Integer::compare)
+                .orElse(0);
     }
 
     private class SortByName implements Comparator<String> {
