@@ -1,6 +1,7 @@
 package keifer.service;
 
 import keifer.api.model.Login;
+import keifer.api.model.PasswordChange;
 import keifer.api.model.User;
 
 import javax.servlet.ServletException;
@@ -17,7 +18,8 @@ public interface UserService {
 
     User saveUser(User user);
 
-    User resetPassword(User user);
+    /** Changes a password, given the current one. */
+    User resetPassword(PasswordChange passwordChange);
 
     void deleteUser(Long userId);
 

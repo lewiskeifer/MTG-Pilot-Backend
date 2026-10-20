@@ -1,8 +1,6 @@
 package keifer.service;
 
-import com.google.gson.Gson;
-import keifer.service.model.DecodedToken;
-import org.apache.commons.codec.binary.Base64;
+import io.jsonwebtoken.Claims;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -19,15 +17,27 @@ public class TokenParsingServiceImpl implements TokenParsingService {
         this.httpServletRequest = httpServletRequest;
     }
 
+    /*
+     * The caller's id, from the claims JwtFilter left on the request once it had checked the
+     * token's signature. This used to base64-decode the token's body straight from the header
+     * without checking anything, so on any route the filter did not cover, a hand-made token
+     * could name whichever user it liked.
+     *
+     * Null where no checked token came with the request, which every permission check reads as
+     * "not this user" - so a route that slips out from behind the filter fails closed.
+     */
     @Override
     public Long getUserId() {
-        String token = httpServletRequest.getHeader("authorization");
-        String[] split_string = token.split("\\.");
-        String base64EncodedBody = split_string[1];
-        Base64 base64Url = new Base64(true);
-        String body = new String(base64Url.decode(base64EncodedBody));
-        DecodedToken decodedToken = new Gson().fromJson(body, DecodedToken.class);
-        return decodedToken.getId();
+
+        Object claims = httpServletRequest.getAttribute("claims");
+
+        if (!(claims instanceof Claims)) {
+            return null;
+        }
+
+        Object id = ((Claims) claims).get("id");
+
+        return id instanceof Number ? ((Number) id).longValue() : null;
     }
 
 }
