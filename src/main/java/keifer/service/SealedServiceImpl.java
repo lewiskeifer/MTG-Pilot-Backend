@@ -88,6 +88,10 @@ public class SealedServiceImpl implements SealedService {
 
     public SealedCollection getSealedCollection(@PathVariable("userId") Long userId, @PathVariable("sealedId") Long sealedId) {
 
+        // The lookup below is scoped to the user in the path, which only protects anything once
+        // that user is known to be the caller - without this, any id in the URL would do
+        checkPermissions(userId);
+
         // Through the same lookup as everything else here, so an id that is not there answers
         // 404 rather than handing a null to the converter and dying inside it
         return sealedCollectionConverter.convert(fetchSealedCollectionEntity(userId, sealedId));
@@ -106,13 +110,9 @@ public class SealedServiceImpl implements SealedService {
                 throw new ServletException("User with id " + userId + " does not exist.");
             }
 
-            Integer sortOrder = sealedCollection.getSortOrder();
-            if (sortOrder == null) {
-                sortOrder = sealedCollectionRepository.findMaxSortOrder();
-                if (sortOrder == null) {
-                    sortOrder = 1;
-                }
-            }
+            // After this user's last collection, whatever position was sent - as on the deck side,
+            // where honouring it put the new one beside an existing one
+            int sortOrder = lastSortOrder(userId) + 1;
 
             sealedCollectionEntity = SealedCollectionEntity.builder()
                     .name(sealedCollection.getName())
@@ -122,8 +122,12 @@ public class SealedServiceImpl implements SealedService {
         } else {
             sealedCollectionEntity = fetchSealedCollectionEntity(userId, sealedCollection.getId());
             sealedCollectionEntity.setName(sealedCollection.getName());
-            cascadeDeckOrdering(userId, sealedCollectionEntity.getSortOrder(), sealedCollection.getSortOrder());
-            sealedCollectionEntity.setSortOrder(sealedCollection.getSortOrder());
+
+            // A save that names no position leaves the collection where it is
+            Integer sortOrder = sealedCollection.getSortOrder() == null
+                    ? sealedCollectionEntity.getSortOrder() : sealedCollection.getSortOrder();
+            cascadeDeckOrdering(userId, sealedCollectionEntity, sortOrder);
+            sealedCollectionEntity.setSortOrder(sortOrder);
         }
 
         return sealedCollectionConverter.convert(sealedCollectionRepository.save(sealedCollectionEntity));
@@ -191,20 +195,21 @@ public class SealedServiceImpl implements SealedService {
         checkPermissions(userId);
 
         SealedCollectionEntity sealedCollectionEntity = fetchSealedCollectionEntity(userId, sealedId);
-        int count = 0;
-        for (SealedEntity sealedEntity : sealedCollectionEntity.getSealedEntities()) {
-            if (sealedEntity.getId().equals(cardId)) {
-                sealedCollectionEntity.getSealedEntities().remove(count);
-                break;
-            }
-            count++;
-        }
+
+        /*
+         * Found inside the caller's collection, not looked up by id on its own. Deleting whatever
+         * product had the id let anyone delete anyone's product, whichever collection they named.
+         */
+        SealedEntity sealedEntity = sealedCollectionEntity.getSealedEntities().stream()
+                .filter(candidate -> cardId.equals(candidate.getId()))
+                .findFirst()
+                .orElseThrow(() -> new NotFoundException(
+                        "Sealed product with id: " + cardId + " not found in collection " + sealedId + "."));
+
+        sealedCollectionEntity.getSealedEntities().remove(sealedEntity);
         sealedCollectionRepository.save(sealedCollectionEntity);
 
-        SealedEntity cardEntity = sealedRepository.findOneById(cardId);
-
-        // TODO check if necessary
-        sealedRepository.delete(cardEntity);
+        sealedRepository.delete(sealedEntity);
     }
 
     @Override
@@ -214,7 +219,8 @@ public class SealedServiceImpl implements SealedService {
 
         SealedCollectionEntity sealedCollectionEntity = fetchSealedCollectionEntity(userId, deckId);
 
-        cascadeDeckOrdering(userId, sealedCollectionEntity.getSortOrder(), sealedCollectionRepository.findMaxSortOrder());
+        // Moved to the end on its way out, which closes the gap it leaves
+        cascadeDeckOrdering(userId, sealedCollectionEntity, lastSortOrder(userId));
 
         sealedCollectionRepository.delete(sealedCollectionEntity);
     }
@@ -361,26 +367,49 @@ public class SealedServiceImpl implements SealedService {
         return sealedCollectionEntity;
     }
 
-    private void cascadeDeckOrdering(Long userId, int oldOrder, int newOrder) {
-        List<SealedCollectionEntity> sealedCollectionEntities = sealedCollectionRepository.findByUserEntityIdOrderBySortOrderAsc(userId);
+    /*
+     * Makes room for a collection moving to a new position: only the ones it passes shift. The
+     * same fix as on the deck side, where moving down renumbered everything to the end of the
+     * list and left two at the new position. By position, passing over the moving one by id.
+     */
+    private void cascadeDeckOrdering(Long userId, SealedCollectionEntity moving, Integer newOrder) {
+
+        Integer oldOrder = moving.getSortOrder();
+
+        if (oldOrder == null || newOrder == null || oldOrder.equals(newOrder)) {
+            return;
+        }
+
         List<SealedCollectionEntity> toUpdate = new ArrayList<>();
-        // Sift down
-        if (newOrder > oldOrder) {
-            for (int i = oldOrder; i < sealedCollectionEntities.size(); ++i) {
-                SealedCollectionEntity sealedCollectionEntity = sealedCollectionEntities.get(i);
-                sealedCollectionEntity.setSortOrder(i);
+
+        for (SealedCollectionEntity sealedCollectionEntity : sealedCollectionRepository.findByUserEntityIdOrderBySortOrderAsc(userId)) {
+
+            Integer order = sealedCollectionEntity.getSortOrder();
+
+            if (order == null || sealedCollectionEntity.getId().equals(moving.getId())) {
+                continue;
+            }
+
+            if (newOrder > oldOrder && order > oldOrder && order <= newOrder) {
+                sealedCollectionEntity.setSortOrder(order - 1);
+                toUpdate.add(sealedCollectionEntity);
+            } else if (newOrder < oldOrder && order >= newOrder && order < oldOrder) {
+                sealedCollectionEntity.setSortOrder(order + 1);
                 toUpdate.add(sealedCollectionEntity);
             }
         }
-        // Sift up
-        else if (oldOrder > newOrder) {
-            for (int i = newOrder; i < oldOrder; ++i) {
-                SealedCollectionEntity sealedCollectionEntity = sealedCollectionEntities.get(i - 1);
-                sealedCollectionEntity.setSortOrder(i + 1);
-                toUpdate.add(sealedCollectionEntity);
-            }
-        }
+
         sealedCollectionRepository.saveAll(toUpdate);
+    }
+
+    /** The position of this user's last collection, or 0 where they have none. */
+    private int lastSortOrder(Long userId) {
+
+        return sealedCollectionRepository.findByUserEntityIdOrderBySortOrderAsc(userId).stream()
+                .map(SealedCollectionEntity::getSortOrder)
+                .filter(Objects::nonNull)
+                .max(Integer::compare)
+                .orElse(0);
     }
 
     private class SortByName implements Comparator<String> {
